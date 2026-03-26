@@ -1,10 +1,9 @@
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Item = require('../../item-management/models/Item');
+const Settings = require('../../item-management/models/Settings');
 
-// @desc    Create new order from cart
-// @route   POST /api/orders
-// @access  Private
+
 exports.createOrder = async (req, res, next) => {
   try {
     const { paymentMethod, shippingAddress } = req.body;
@@ -16,7 +15,11 @@ exports.createOrder = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Your cart is empty' });
     }
 
-    // 2. Prepare order items and calculate totals
+    // 2. Fetch platform settings for the current fee
+    const settings = await Settings.findOne() || { platformFee: 5 };
+    const feeMultiplier = settings.platformFee / 100;
+
+    // 3. Prepare order items and calculate totals
     const orderItems = cart.items.map(item => ({
       product: item.product._id,
       quantity: item.quantity,
@@ -24,7 +27,7 @@ exports.createOrder = async (req, res, next) => {
     }));
 
     const subtotal = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const platformFee = Math.round(subtotal * 0.05);
+    const platformFee = Math.round(subtotal * feeMultiplier);
     const totalAmount = subtotal + platformFee;
 
     // 3. Create the order
@@ -186,6 +189,86 @@ exports.getUserAnalytics = async (req, res, next) => {
         monthlySpending,
         pendingOrders,
         completedOrders: completedOrdersList
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get seller financial analytics (only orders containing this seller's items)
+// @route   GET /api/orders/seller/analytics
+// @access  Private/Seller
+exports.getSellerAnalytics = async (req, res, next) => {
+  try {
+    const sellerId = String(req.user.id || req.user._id);
+
+    // NOTE: We keep this simple (populate + filter) since typical campus datasets are small.
+    // If this grows, move to an aggregation pipeline with a $lookup on items.
+    const orders = await Order.find()
+      .populate('user', 'firstName lastName universityEmail')
+      .populate('items.product', 'title imageUrl seller')
+      .sort('-createdAt');
+
+    const sellerOrders = [];
+
+    for (const order of orders) {
+      const sellerItems = (order.items || []).filter((it) => {
+        const product = it.product;
+        if (!product) return false;
+        const productSeller = product.seller?._id ? String(product.seller._id) : String(product.seller);
+        return productSeller === sellerId;
+      });
+
+      if (sellerItems.length === 0) continue;
+
+      const sellerSubtotal = sellerItems.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 0)), 0);
+
+      // Platform fee is charged on the whole order; allocate proportionally for visibility.
+      const feeShare =
+        Number(order.subtotal || 0) > 0
+          ? Math.round(Number(order.platformFee || 0) * (sellerSubtotal / Number(order.subtotal || 1)))
+          : 0;
+
+      sellerOrders.push({
+        _id: order._id,
+        user: order.user,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        shippingAddress: order.shippingAddress,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        orderSubtotal: order.subtotal,
+        orderPlatformFee: order.platformFee,
+        orderTotalAmount: order.totalAmount,
+        sellerSubtotal,
+        platformFeeShare: feeShare,
+        items: sellerItems.map((it) => ({
+          product: it.product,
+          quantity: it.quantity,
+          price: it.price
+        }))
+      });
+    }
+
+    const completedOrders = sellerOrders.filter((o) => o.paymentStatus === 'completed');
+    const pendingOrders = sellerOrders.filter((o) => o.paymentStatus === 'pending');
+
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.sellerSubtotal || 0), 0);
+    const itemsSold = completedOrders.reduce(
+      (sum, o) => sum + (o.items || []).reduce((s, it) => s + Number(it.quantity || 0), 0),
+      0
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalRevenue,
+        itemsSold,
+        completedOrders: completedOrders.length,
+        pendingOrders: pendingOrders.length,
+        orders: sellerOrders
       }
     });
   } catch (err) {

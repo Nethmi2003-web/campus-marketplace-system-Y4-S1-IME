@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PlusCircle, Image as ImageIcon, Calendar as CalendarIcon, MapPin, Users, Loader2 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { toast } from "react-toastify";
 
 export function AdminEventsTab() {
   const [events, setEvents] = useState([]);
@@ -51,7 +52,7 @@ export function AdminEventsTab() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!imageFile) {
-      alert("Please select an image");
+      toast.warn("Please select an image for the event.");
       return;
     }
 
@@ -66,7 +67,11 @@ export function AdminEventsTab() {
       await axios.post("/api/events", data, {
         headers: { "Content-Type": "multipart/form-data" }
       });
-      alert("Event created successfully!");
+      toast.success("Event created successfully!", {
+        icon: <ImageIcon className="text-emerald-500" size={18} />,
+        style: { background: "#ecfdf3", color: "#166534", fontWeight: 700 },
+        progressStyle: { background: "#22c55e" }
+      });
       setShowForm(false);
       setImageFile(null);
       setFormData({
@@ -83,7 +88,7 @@ export function AdminEventsTab() {
       fetchEvents();
     } catch (error) {
       console.error("Error creating event:", error);
-      alert("Failed to create event");
+      toast.error("Failed to create event.");
     } finally {
       setIsSubmitting(false);
     }

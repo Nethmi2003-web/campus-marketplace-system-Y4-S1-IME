@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/shared/UI";
+import { setSessionForRole } from "../lib/session";
+import { toast } from "react-toastify";
 
 // UI Components removed, now using shared UI library from ../components/shared/UI
 
@@ -31,12 +33,27 @@ function LoginPage() {
       }
 
       // Save token & user into role-specific keys to allow concurrent multi-role sessions
-      if (data.role === 'admin') {
-         localStorage.setItem("admin_userInfo", JSON.stringify(data));
-         navigate("/admin-dashboard");
+      setSessionForRole(data);
+      if (data?.sellerRequest?.status === "pending") {
+        toast.info("Your seller request is pending admin approval.", { autoClose: 2500 });
+        navigate("/seller-request-status");
+        return;
+      }
+      if (data?.sellerRequest?.status === "rejected") {
+        const reason = String(data?.sellerRequest?.rejectionReason || "").trim();
+        toast.error(reason ? `Seller request rejected: ${reason}` : "Your seller request was rejected by admin.", {
+          autoClose: 4000
+        });
+        navigate("/seller-request-status");
+        return;
+      }
+      if (data?.sellerRequest?.status === "approved" && String(data.role).toLowerCase() === "seller") {
+        toast.success("Seller request approved. Welcome to SellerHub!", { autoClose: 2000 });
+      }
+      if (data.role === 'admin' || data.role === 'sportAdmin') {
+        navigate("/admin-dashboard");
       } else {
-         localStorage.setItem("std_userInfo", JSON.stringify(data));
-         navigate("/user-dashboard");
+        navigate(data.role === 'seller' ? "/seller-dashboard" : "/user-dashboard");
       }
       
     } catch (err) {

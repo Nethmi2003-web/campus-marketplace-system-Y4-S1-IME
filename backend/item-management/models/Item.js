@@ -43,6 +43,12 @@ const ItemSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Snapshot of the seller display name at the time of listing creation.
+  // The live seller profile is also available via populate("seller").
+  sellerName: {
+    type: String,
+    trim: true
+  },
   stockQuantity: {
     type: Number,
     default: 1

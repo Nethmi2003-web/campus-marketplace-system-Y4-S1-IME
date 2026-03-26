@@ -3,6 +3,8 @@ import { Search, SlidersHorizontal, PackageSearch, X, Heart, ShoppingCart, Tag, 
 import axios from "axios";
 import { cn } from "../lib/utils";
 import { Button, Badge, Input } from "./shared/UI";
+import { toast } from "react-toastify";
+import { getBuyerSessionWithKey } from "../lib/session";
 
 // --- INLINE UI COMPONENTS --- //
 
@@ -148,18 +150,21 @@ const CATEGORIES = [
   { id: "Other", name: "Other" },
 ];
 
-export default function MarketplaceUI() {
+export default function MarketplaceUI({ onWishlistChange = () => {}, onCartChange = () => {} }) {
   const [items, setItems] = useState([]);
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const ITEMS_PER_PAGE = 8;
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       
       // Fetch Marketplace Items
       const itemsRes = await axios.get("/api/items");
@@ -197,9 +202,9 @@ export default function MarketplaceUI() {
 
   const handleToggleWishlist = async (productId, isLiked) => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       if (!userInfo.token) {
-        alert("Please login to save items to your wishlist.");
+        toast.info("Please login to save items to your wishlist.");
         return;
       }
 
@@ -208,6 +213,12 @@ export default function MarketplaceUI() {
           headers: { Authorization: `Bearer ${userInfo.token}` }
         });
         setWishlistIds(prev => new Set(prev).add(productId));
+        onWishlistChange(wishlistIds.size + 1);
+        toast.success("Saved to wishlist", {
+          icon: <Heart className="text-rose-500" size={18} />,
+          style: { background: "#fff1f2", color: "#9f1239", fontWeight: 700 },
+          progressStyle: { background: "#fb7185" }
+        });
       } else {
         await axios.delete(`/api/wishlist/${productId}`, {
           headers: { Authorization: `Bearer ${userInfo.token}` }
@@ -215,20 +226,26 @@ export default function MarketplaceUI() {
         setWishlistIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(productId);
+          onWishlistChange(newSet.size);
           return newSet;
+        });
+        toast.info("Removed from wishlist", {
+          icon: <X className="text-slate-500" size={18} />,
+          style: { background: "#f8fafc", color: "#0f172a", fontWeight: 700 },
+          progressStyle: { background: "#cbd5e1" }
         });
       }
     } catch (err) {
       console.error("Wishlist toggle error:", err);
-      // Revert local state if needed
+      toast.error("Unable to update wishlist right now.");
     }
   };
 
   const handleAddToCart = async (productId) => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       if (!userInfo.token) {
-        alert("Please login to add items to your cart.");
+        toast.info("Please login to add items to your cart.");
         return;
       }
 
@@ -238,11 +255,16 @@ export default function MarketplaceUI() {
       );
 
       if (response.data.success) {
-        alert("Item added to cart successfully!");
+        toast.success("Successfully added to cart", {
+          icon: <ShoppingCart className="text-emerald-500" size={18} />,
+          style: { background: "#ecfdf3", color: "#166534", fontWeight: 700 },
+          progressStyle: { background: "#22c55e" }
+        });
+        onCartChange((prev) => (typeof prev === "number" ? prev + 1 : prev));
       }
     } catch (err) {
       console.error("Error adding to cart:", err);
-      alert(err.response?.data?.message || "Failed to add item to cart.");
+      toast.error(err.response?.data?.message || "Failed to add item to cart.");
     }
   };
 
@@ -251,6 +273,22 @@ export default function MarketplaceUI() {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const pagedItems = filteredItems.slice(startIndex, endIndex);
+
+  // Clamp page if the filtered list shrinks while the user is on a later page.
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   // Fetching handled implicitly by rendering filteredItems or empty state
 
@@ -317,18 +355,70 @@ export default function MarketplaceUI() {
       </div>
 
       {filteredItems.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredItems.map(item => (
-            <InlineItemCard 
-              key={item._id} 
-              id={item._id}
-              {...item} 
-              seller={item.seller?.firstName ? `${item.seller.firstName} ${item.seller.lastName}` : "Student"}
-              onAddToCart={handleAddToCart}
-              onToggleWishlist={handleToggleWishlist}
-              isLiked={wishlistIds.has(item._id)}
-            />
-          ))}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {pagedItems.map(item => (
+              <InlineItemCard 
+                key={item._id} 
+                id={item._id}
+                {...item} 
+                seller={
+                  item.seller?.firstName
+                    ? `${item.seller.firstName} ${item.seller.lastName}`
+                    : item.sellerName || "Student"
+                }
+                onAddToCart={handleAddToCart}
+                onToggleWishlist={handleToggleWishlist}
+                isLiked={wishlistIds.has(item._id)}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground font-bold">
+              Showing <span className="text-primary font-black">{filteredItems.length === 0 ? 0 : startIndex + 1}</span>-
+              <span className="text-primary font-black">{Math.min(endIndex, filteredItems.length)}</span> of{" "}
+              <span className="text-primary font-black">{filteredItems.length}</span>
+            </p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={cn(
+                      "h-9 min-w-9 px-3 rounded-xl text-xs font-black uppercase tracking-widest border transition-all",
+                      p === safePage
+                        ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                        : "bg-white/50 backdrop-blur-md text-muted-foreground border-white hover:border-primary/20 hover:text-primary"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-muted/20 rounded-[3rem] border-2 border-dashed border-muted">

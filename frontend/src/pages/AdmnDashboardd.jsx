@@ -1,16 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { cn } from '../lib/utils';
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Users, ShoppingBag, AlertTriangle, TrendingUp, ShieldCheck, 
   ArrowUpRight, ArrowDownRight, LayoutDashboard,
-  LogOut, Bell, Settings, Activity, Receipt, BadgeDollarSign, Calendar
+  LogOut, Bell, Settings, Activity, Receipt, BadgeDollarSign, Calendar, FileText, UserCheck
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { AdminPricingTab } from "../components/AdminPricingTab";
 import { AdminTransactionsTab } from "../components/AdminTransactionsTab";
 import { AdminListingsTab } from "../components/AdminListingsTab";
 import { AdminEventsTab } from "../components/AdminEventsTab";
+import { AdminPaymentReportsTab } from "../components/AdminPaymentReportsTab";
+import { AdminSellerRequestsTab } from "../components/AdminSellerRequestsTab";
+import { toast } from "react-toastify";
+import { clearSession, getAdminSessionWithKey, STORAGE_KEYS } from "../lib/session";
 
 // Removed IoT specific chart imports
 
@@ -48,16 +53,18 @@ function AdminSidebar({ activeTab, setActiveTab }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_userInfo");
+    clearSession(STORAGE_KEYS.admin);
     navigate("/");
   };
 
   const tabs = [
     { id: "overview",     label: "System Overview",     icon: LayoutDashboard },
     { id: "users",        label: "Manage Users",         icon: Users },
+    { id: "sellerRequests", label: "Seller Requests",    icon: UserCheck },
     { id: "listings",     label: "Active Listings",      icon: ShoppingBag },
     { id: "transactions", label: "Transactions",         icon: Receipt },
     { id: "pricing",      label: "Pricing Management",   icon: BadgeDollarSign },
+    { id: "paymentReports", label: "Payment Reports",    icon: FileText },
     { id: "events",       label: "Campus Events",        icon: Calendar },
     { id: "moderation",   label: "Trust & Safety",       icon: AlertTriangle },
     { id: "settings",     label: "Platform Settings",    icon: Settings },
@@ -94,12 +101,17 @@ function AdminSidebar({ activeTab, setActiveTab }) {
 // -------------------------------------------------------------
 export default function AdmnDashboardd() {
   const navigate = useNavigate();
-  const userInfo = JSON.parse(localStorage.getItem("admin_userInfo") || "{}");
+  const { session: userInfo } = getAdminSessionWithKey();
   const [activeTab, setActiveTab] = useState("overview");
+  const [stats, setStats] = useState(null);
+  const [trend, setTrend] = useState([]);
+  const [recentListings, setRecentListings] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // Aggressive Session Validation
-  React.useEffect(() => {
-    if (!userInfo.token || userInfo.role !== 'admin') {
+  useEffect(() => {
+    const allowedAdminRoles = new Set(['admin', 'sportAdmin']);
+    if (!userInfo.token || !allowedAdminRoles.has(userInfo.role)) {
       navigate('/');
       return;
     }
@@ -109,13 +121,13 @@ export default function AdmnDashboardd() {
           headers: { Authorization: `Bearer ${userInfo.token}` }
         });
         if (res.status === 401 || res.status === 403) {
-          alert('Admin Session Expired: Security mechanism detected a new login. You have been securely signed out.');
-          localStorage.removeItem("admin_userInfo");
+          toast.error('Admin Session Expired: Security mechanism detected a new login. You have been securely signed out.');
+          clearSession(STORAGE_KEYS.admin);
           navigate('/');
         } else if (res.ok) {
            const userData = await res.json();
-           if (userData.role !== 'admin') {
-              alert('Unauthorized access. Redirecting...');
+           if (!allowedAdminRoles.has(userData.role)) {
+              toast.error('Unauthorized access attempt detected. Redirecting...');
               navigate('/');
            }
         }
@@ -124,13 +136,38 @@ export default function AdmnDashboardd() {
       }
     };
     verifySession();
-  }, [navigate, userInfo.token]);
+  }, [navigate]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        toast.info("Updating system overview...", { autoClose: 500 });
+        const { data } = await axios.get("/api/admin/stats", {
+          headers: { Authorization: `Bearer ${userInfo.token}` }
+        });
+        if (data.success) {
+          setStats(data.data.stats);
+          setTrend(data.data.trend);
+          setRecentListings(data.data.recentListings || []);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching admin stats:", err);
+        setLoading(false);
+      }
+    };
+
+    if (activeTab === 'overview') {
+      fetchStats();
+    }
+  }, [activeTab, userInfo.token]);
 
   const adminStats = [
-    { title: "Total Users", value: "1,284", change: "+12.5%", trend: "up", icon: Users },
-    { title: "Active Listings", value: "452", change: "+5.2%", trend: "up", icon: ShoppingBag },
-    { title: "Reports", value: "12", change: "-25%", trend: "down", icon: AlertTriangle },
-    { title: "Platform Trust", value: "98.2%", change: "+0.4%", trend: "up", icon: ShieldCheck }
+    { title: "Total Users", value: stats?.totalUsers || "0", change: "+12.5%", trend: "up", icon: Users },
+    { title: "Active Listings", value: stats?.activeListings || "0", change: "+5.2%", trend: "up", icon: ShoppingBag },
+    { title: "Upcoming Events", value: stats?.upcomingEvents || "0", change: "Live", trend: "up", icon: Calendar },
+    { title: "Platform Fees", value: `LKR ${stats?.totalFees?.toLocaleString() || "0"}`, change: "+18%", trend: "up", icon: BadgeDollarSign }
   ];
 
   return (
@@ -174,7 +211,7 @@ export default function AdmnDashboardd() {
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="text-xl font-bold text-primary">Platform Traffic</h3>
-                      <p className="text-sm text-muted-foreground font-medium">Daily active users and interactions</p>
+                      <p className="text-sm text-muted-foreground font-medium">Daily transaction volume (Last 7 Days)</p>
                     </div>
                     <div className="flex items-center gap-1.5 font-bold text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
                       <Activity size={12} /> Live
@@ -182,7 +219,7 @@ export default function AdmnDashboardd() {
                   </div>
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={Array.from({ length: 12 }, (_, i) => ({ name: `${i*2}h`, value: 200 + Math.random() * 500 }))}>
+                      <AreaChart data={trend.length > 0 ? trend : Array.from({ length: 12 }, (_, i) => ({ name: `${i*2}h`, value: 200 + Math.random() * 500 }))}>
                         <defs>
                           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -198,12 +235,75 @@ export default function AdmnDashboardd() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="p-8 bg-gradient-to-br from-[#001f5c] to-primary/90 rounded-3xl text-white shadow-2xl">
-                  <ShieldCheck size={40} className="text-secondary mb-4" />
-                  <h3 className="text-2xl font-black leading-tight mb-2">System Integrity</h3>
-                  <p className="text-white/70 text-sm mb-6">All core modules operational.</p>
-                  <button className="w-full bg-white text-primary py-3 rounded-xl font-bold hover:bg-white/90">Run Diagnostic</button>
+                <div className="flex flex-col gap-8">
+                  <div className="p-8 bg-gradient-to-br from-[#001f5c] to-primary/90 rounded-3xl text-white shadow-2xl flex-1 flex flex-col justify-center">
+                    <ShieldCheck size={40} className="text-secondary mb-4" />
+                    <h3 className="text-2xl font-black leading-tight mb-2">System Integrity</h3>
+                    <p className="text-white/70 text-sm mb-6">Core modules operational. Automated security checks passed.</p>
+                    <button className="w-full bg-white text-primary py-3 rounded-xl font-bold hover:bg-white/90 transition-all">Run Diagnostic</button>
+                  </div>
                 </div>
+              </div>
+
+              {/* Recent Listings Breakdown */}
+              <div className="rounded-3xl border bg-card shadow-xl p-8">
+                 <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-xl font-black text-primary tracking-tight">Recent Activity</h3>
+                      <p className="text-sm text-muted-foreground font-medium">Latest items added to the marketplace</p>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('listings')}
+                      className="text-primary font-black text-xs uppercase tracking-widest hover:underline"
+                    >
+                      View All Listings
+                    </button>
+                 </div>
+
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                       <thead>
+                          <tr className="border-b text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                             <th className="pb-4 pr-4">Product</th>
+                             <th className="pb-4 px-4 text-center">Price</th>
+                             <th className="pb-4 px-4 text-center">Status</th>
+                             <th className="pb-4 px-4 text-right">Seller</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y">
+                          {recentListings.length > 0 ? recentListings.map((item) => (
+                            <tr key={item._id} className="group hover:bg-muted/30 transition-colors">
+                               <td className="py-4 pr-4">
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0 border">
+                                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                     </div>
+                                     <span className="font-bold text-primary line-clamp-1">{item.title}</span>
+                                  </div>
+                               </td>
+                               <td className="py-4 px-4 text-center">
+                                  <span className="font-black text-secondary">LKR {item.price.toLocaleString()}</span>
+                               </td>
+                               <td className="py-4 px-4 text-center">
+                                  <span className={cn(
+                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                                    item.status === 'available' ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+                                  )}>
+                                     {item.status}
+                                  </span>
+                               </td>
+                               <td className="py-4 px-4 text-right">
+                                  <span className="font-bold text-muted-foreground">{item.seller?.firstName} {item.seller?.lastName}</span>
+                               </td>
+                            </tr>
+                          )) : (
+                            <tr>
+                               <td colSpan={4} className="py-10 text-center text-muted-foreground font-medium italic">No recent listings found.</td>
+                            </tr>
+                          )}
+                       </tbody>
+                    </table>
+                 </div>
               </div>
             </div>
           )}
@@ -219,6 +319,9 @@ export default function AdmnDashboardd() {
             </div>
           )}
 
+          {/* ── SELLER REQUESTS ── */}
+          {activeTab === 'sellerRequests' && <AdminSellerRequestsTab />}
+
           {/* ── LISTINGS ── */}
           {activeTab === 'listings' && <AdminListingsTab />}
 
@@ -226,7 +329,10 @@ export default function AdmnDashboardd() {
           {activeTab === 'transactions' && <AdminTransactionsTab />}
 
           {/* ── PRICING MANAGEMENT ── */}
-          {activeTab === 'pricing' && <AdminPricingTab />}
+          {activeTab === 'pricing' && <AdminPricingTab onOpenPaymentReports={() => setActiveTab('paymentReports')} />}
+
+          {/* ── PAYMENT REPORTS ── */}
+          {activeTab === 'paymentReports' && <AdminPaymentReportsTab />}
 
           {/* ── MODERATION ── */}
           {activeTab === 'moderation' && (

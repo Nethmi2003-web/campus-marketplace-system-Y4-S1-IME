@@ -3,6 +3,7 @@ import axios from "axios";
 import { cn } from '../lib/utils';
 import { Receipt, CheckCircle2, XCircle, Clock, ArrowUpRight, ArrowDownRight, Loader2,Search, Filter, User } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getAdminSessionWithKey } from "../lib/session";
 
 export function AdminTransactionsTab() {
   const [orders, setOrders] = useState([]);
@@ -11,6 +12,8 @@ export function AdminTransactionsTab() {
   const [granularity, setGranularity] = useState("full"); // "full" | "w1" | "w2" | "w3" | "w4"
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -20,7 +23,12 @@ export function AdminTransactionsTab() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const userInfo = JSON.parse(localStorage.getItem("admin_userInfo") || "{}");
+        const { session: userInfo } = getAdminSessionWithKey();
+        if (!userInfo.token) {
+          setError("Please log in as admin to view transactions.");
+          setLoading(false);
+          return;
+        }
         const response = await axios.get("/api/orders", {
           headers: { Authorization: `Bearer ${userInfo.token}` }
         });
@@ -244,14 +252,22 @@ export function AdminTransactionsTab() {
                      <span className="text-[10px] text-muted-foreground font-medium truncate">{tx.user?.firstName} {tx.user?.lastName}</span>
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1.5">
-                   <p className="font-black text-sm text-foreground whitespace-nowrap tracking-tight">LKR {tx.totalAmount.toLocaleString()}</p>
-                   <span className={cn(
-                     "text-[9px] font-black px-2 py-0.5 rounded-lg whitespace-nowrap uppercase tracking-widest",
-                     tx.paymentStatus === 'completed' ? 'bg-green-100 text-green-700' :
-                     tx.paymentStatus === 'pending'   ? 'bg-amber-100 text-amber-700' :
-                                                       'bg-red-100 text-red-600'
-                   )}>{tx.paymentStatus}</span>
+                <div className="flex flex-col items-end gap-2.5">
+                   <div className="text-right">
+                      <p className="font-black text-sm text-foreground whitespace-nowrap tracking-tight">LKR {tx.totalAmount.toLocaleString()}</p>
+                      <span className={cn(
+                        "text-[9px] font-black px-2 py-0.5 rounded-lg whitespace-nowrap uppercase tracking-widest",
+                        tx.paymentStatus === 'completed' ? 'bg-green-100 text-green-700' :
+                        tx.paymentStatus === 'pending'   ? 'bg-amber-100 text-amber-700' :
+                                                          'bg-red-100 text-red-600'
+                      )}>{tx.paymentStatus}</span>
+                   </div>
+                   <button 
+                    onClick={() => { setSelectedOrder(tx); setIsModalOpen(true); }}
+                    className="p-1.5 rounded-lg bg-primary/5 text-primary opacity-0 group-hover:opacity-100 transition-all hover:bg-primary hover:text-white"
+                   >
+                      <ArrowUpRight size={14} />
+                   </button>
                 </div>
               </div>
             ))}
@@ -264,6 +280,121 @@ export function AdminTransactionsTab() {
           </div>
         </div>
       </div>
+
+      {/* Transaction Details Modal */}
+      {isModalOpen && selectedOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b flex items-center justify-between bg-muted/20">
+              <div>
+                <h3 className="text-xl font-black text-primary tracking-tight uppercase">Order Details</h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-0.5">Transaction ID: #{selectedOrder._id}</p>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 rounded-xl bg-white border hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+              {/* Customer and Status Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    <User size={14} className="text-secondary" />
+                    Customer Information
+                  </div>
+                  <div className="p-4 bg-muted/20 rounded-2xl space-y-1">
+                    <p className="font-black text-primary text-lg">{selectedOrder.user?.firstName} {selectedOrder.user?.lastName}</p>
+                    <p className="text-xs text-muted-foreground font-medium">{selectedOrder.user?.universityEmail}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    <Clock size={14} className="text-secondary" />
+                    Order Status
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <span className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest",
+                      selectedOrder.paymentStatus === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    )}>
+                      Payment: {selectedOrder.paymentStatus}
+                    </span>
+                    <span className="px-4 py-2 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest">
+                      Method: {selectedOrder.paymentMethod}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                  <Receipt size={14} className="text-secondary" />
+                  Order Breakdown
+                </div>
+                <div className="rounded-2xl border overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/30 border-b">
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Product</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Qty</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {selectedOrder.items.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-muted/10 transition-colors">
+                          <td className="px-4 py-3 font-bold text-sm text-primary">{item.product?.title || "Product"}</td>
+                          <td className="px-4 py-3 text-center text-sm font-bold">{item.quantity}</td>
+                          <td className="px-4 py-3 text-right text-sm font-black">LKR {item.price.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 space-y-4">
+                <div className="flex justify-between items-center text-sm font-bold text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>LKR {selectedOrder.subtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-bold text-secondary">
+                  <span>Platform Fee</span>
+                  <span>LKR {selectedOrder.platformFee.toLocaleString()}</span>
+                </div>
+                <div className="pt-4 border-t border-primary/10 flex justify-between items-center">
+                  <span className="text-lg font-black text-primary uppercase">Total Amount</span>
+                  <span className="text-2xl font-black text-primary">LKR {selectedOrder.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 bg-muted/10 flex justify-end gap-4">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5 rounded-xl bg-white border font-bold text-sm hover:bg-muted transition-all"
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="px-6 py-2.5 rounded-xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+              >
+                Print Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

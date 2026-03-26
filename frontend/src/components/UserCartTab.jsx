@@ -4,8 +4,10 @@ import { cn } from '../lib/utils';
 import { 
   Trash2, Plus, Minus, ShoppingBag, 
   CreditCard, ShieldCheck, ArrowRight,
-  Truck, Tag, Info
+  Truck, Tag, Info, FileText, Lock
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { getBuyerSessionWithKey } from "../lib/session";
 
 export function UserCartTab() {
   const [step, setStep] = useState("cart"); // 'cart' | 'checkout' | 'success'
@@ -15,23 +17,32 @@ export function UserCartTab() {
   const [error, setError] = useState(null);
   const [promoCode, setPromoCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("online");
+  const [platformFeePercentage, setPlatformFeePercentage] = useState(5);
+  const [cardDetails, setCardDetails] = useState({
+    name: "",
+    number: "",
+    expiry: "",
+    cvc: "",
+    country: "Sri Lanka"
+  });
 
   const fetchCart = async () => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       if (!userInfo.token) {
         setError("Please login to view your cart.");
         setLoading(false);
         return;
       }
 
-      const response = await axios.get("/api/cart", {
-        headers: { Authorization: `Bearer ${userInfo.token}` }
-      });
+      const [cartRes, settingsRes] = await Promise.all([
+        axios.get("/api/cart", { headers: { Authorization: `Bearer ${userInfo.token}` } }),
+        axios.get("/api/settings")
+      ]);
 
-      if (response.data.success) {
+      if (cartRes.data.success) {
         // Robust mapping that handles both old (populated) and new (embedded) cart data
-        const cartItems = response.data.data.items.map(item => {
+        const cartItems = cartRes.data.data.items.map(item => {
           const product = item.product || {};
           return {
             ...item,
@@ -45,9 +56,14 @@ export function UserCartTab() {
         });
         setItems(cartItems);
       }
+
+      if (settingsRes.data.success) {
+        setPlatformFeePercentage(settingsRes.data.data.platformFee);
+      }
+
       setLoading(false);
     } catch (err) {
-      console.error("Error fetching cart:", err);
+      console.error("Error fetching cart data:", err);
       setError("Failed to load your cart.");
       setLoading(false);
     }
@@ -64,7 +80,7 @@ export function UserCartTab() {
     const newQuantity = Math.max(1, item.quantity + delta);
     
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       await axios.post("/api/cart", 
         { productId, quantity: newQuantity },
         { headers: { Authorization: `Bearer ${userInfo.token}` } }
@@ -75,13 +91,13 @@ export function UserCartTab() {
       ));
     } catch (err) {
       console.error("Error updating quantity:", err);
-      alert("Failed to update quantity.");
+      toast.error("Failed to update quantity.");
     }
   };
 
   const removeItem = async (productId) => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       await axios.delete(`/api/cart/${productId}`, {
         headers: { Authorization: `Bearer ${userInfo.token}` }
       });
@@ -89,14 +105,25 @@ export function UserCartTab() {
       setItems(prev => prev.filter(item => item.id !== productId));
     } catch (err) {
       console.error("Error removing item:", err);
-      alert("Failed to remove item.");
+      toast.error("Failed to remove item.");
     }
   };
 
   const handleCheckout = async () => {
     try {
       setLoading(true);
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
+      const itemsSnapshot = items.map(item => ({
+        id: item.id,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+        category: item.category
+      }));
+      const subtotalValue = itemsSnapshot.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const platformFeeValue = Math.round(subtotalValue * (platformFeePercentage / 100));
+      const totalValue = subtotalValue + platformFeeValue;
+
       const response = await axios.post("/api/orders", 
         { 
           paymentMethod, 
@@ -106,20 +133,66 @@ export function UserCartTab() {
       );
 
       if (response.data.success) {
-        setOrderData(response.data.data);
+        const apiOrder = response.data.data || {};
+        const buyerName = apiOrder.buyerName || `${userInfo.firstName || "Student"} ${userInfo.lastName || ""}`.trim() || "Student Buyer";
+        const builtOrder = {
+          ...apiOrder,
+          items: apiOrder.items || itemsSnapshot,
+          subtotal: apiOrder.subtotal || subtotalValue,
+          platformFee: apiOrder.platformFee || platformFeeValue,
+          totalAmount: apiOrder.totalAmount || totalValue,
+          paymentMethod,
+          paymentReference: apiOrder.paymentIntentId || apiOrder._id || `PAY-${Date.now()}`,
+          buyerName,
+          shippingAddress: apiOrder.shippingAddress || "SLIIT Main Campus - Student Lounge",
+          createdAt: apiOrder.createdAt || new Date().toISOString()
+        };
+        setOrderData(builtOrder);
         setStep("success");
         setItems([]); // Clear local cart
       }
       setLoading(false);
     } catch (err) {
       console.error("Checkout error:", err);
-      alert(err.response?.data?.message || "Failed to process checkout.");
+      toast.error(err.response?.data?.message || "Failed to process checkout.");
       setLoading(false);
     }
   };
 
+  const handleDownloadReceipt = () => {
+    if (!orderData) {
+      toast.info("Receipt will be available once the order is placed.");
+      return;
+    }
+    const itemsList = (orderData.items || [])
+      .map(item => `- ${item.title} x${item.quantity} @ LKR ${item.price.toLocaleString()}`)
+      .join("\n");
+    const issuedOn = new Date(orderData.createdAt || Date.now()).toLocaleString();
+    const receiptText = [
+      "SLIIT Campus Marketplace - Payment Receipt",
+      `Receipt #: ${orderData.paymentReference || orderData._id || `PAY-${Date.now()}`}`,
+      `Issued: ${issuedOn}`,
+      `Payment Method: ${orderData.paymentMethod || paymentMethod}`,
+      "",
+      "Items:",
+      itemsList || "No items recorded.",
+      "",
+      `Subtotal: LKR ${(orderData.subtotal || 0).toLocaleString()}`,
+      `Platform Fee: LKR ${(orderData.platformFee || 0).toLocaleString()}`,
+      `Total Paid: LKR ${(orderData.totalAmount || 0).toLocaleString()}`
+    ].join("\n");
+
+    const blob = new Blob([receiptText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `receipt-${orderData.paymentReference || orderData._id || Date.now()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const platformFee = Math.round(subtotal * 0.05); // 5% fee
+  const platformFee = Math.round(subtotal * (platformFeePercentage / 100));
   const total = subtotal + platformFee;
 
   if (loading) {
@@ -322,50 +395,100 @@ export function UserCartTab() {
   }
 
   // --- SUCCESS STEP --- //
-  if (step === "success") return (
-    <div className="max-w-2xl mx-auto py-12 text-center space-y-8 animate-in fade-in zoom-in duration-700">
-      <div className="w-24 h-24 bg-green-500 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl shadow-green-200">
-        <ShieldCheck size={48} />
-      </div>
-      
-      <div className="space-y-4">
-        <h2 className="text-4xl font-black text-primary tracking-tight">Order Placed!</h2>
-        <p className="text-muted-foreground font-medium">
-          Your order <span className="text-primary font-bold">#{orderData?._id.slice(-8).toUpperCase()}</span> has been successfully placed.
-        </p>
-      </div>
+  if (step === "success") {
+    const receiptItems = orderData?.items || [];
+    const paymentRef = orderData?.paymentReference || orderData?._id || `PAY-${Date.now()}`;
+    const issuedOn = new Date(orderData?.createdAt || Date.now()).toLocaleString();
+    const subtotalPaid = orderData?.subtotal ?? 0;
+    const feePaid = orderData?.platformFee ?? 0;
+    const totalPaid = orderData?.totalAmount ?? 0;
 
-      <div className="bg-card border rounded-[2.5rem] p-8 shadow-xl shadow-black/5 text-left space-y-6">
-        <div className="flex justify-between items-center pb-4 border-b">
-           <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total Paid</span>
-           <span className="text-2xl font-black text-primary font-mono">LKR {orderData?.totalAmount.toLocaleString()}</span>
+    return (
+      <div className="max-w-3xl mx-auto py-12 space-y-10 animate-in fade-in zoom-in duration-700">
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <div className="w-20 h-20 bg-green-500 text-white rounded-[1.75rem] flex items-center justify-center shadow-2xl shadow-green-200">
+            <ShieldCheck size={44} />
+          </div>
+          <h2 className="text-4xl font-black text-primary tracking-tight">Payment Captured</h2>
+          <p className="text-muted-foreground font-medium">
+            Receipt #{paymentRef} • Paid via {orderData?.paymentMethod || paymentMethod}
+          </p>
         </div>
-        
-        <div className="space-y-4">
-           <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary flex-shrink-0">
-                 <Truck size={20} />
-              </div>
-              <div>
-                 <h4 className="font-bold text-sm text-primary">Next Steps</h4>
-                 <p className="text-xs text-muted-foreground leading-relaxed">
-                   {paymentMethod === 'cash' 
-                     ? "Meet the seller at the Student Lounge for the handover and payment."
-                     : "Your payment is confirmed. Reach out to the seller to arrange the handover."}
-                 </p>
-              </div>
-           </div>
+
+        <div className="rounded-[2.5rem] border bg-card shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-primary to-[#001f5c] text-white px-8 py-6 flex items-center justify-between">
+             <div>
+                <p className="text-xs uppercase font-black tracking-widest text-white/70">Stripe Payment Receipt</p>
+                <h3 className="text-2xl font-black">Campus Marketplace</h3>
+             </div>
+             <div className="text-right">
+                <p className="text-sm font-bold">Issued {issuedOn}</p>
+                <p className="text-xs text-white/70">Reference {paymentRef}</p>
+             </div>
+          </div>
+          <div className="p-8 space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="space-y-2">
+                 <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Billed To</p>
+                 <p className="font-bold text-primary">{orderData?.buyerName || "Student Buyer"}</p>
+                 <p className="text-sm text-muted-foreground">{orderData?.shippingAddress || "SLIIT Main Campus - Student Lounge"}</p>
+               </div>
+               <div className="space-y-2">
+                 <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Payment Method</p>
+                 <p className="font-bold text-primary">{orderData?.paymentMethod || "Stripe (Card)"}</p>
+                 <p className="text-sm text-muted-foreground">UI-only capture • Redirects to Stripe checkout</p>
+               </div>
+             </div>
+
+             <div className="border rounded-2xl divide-y">
+               {receiptItems.map(item => (
+                 <div key={item.id || item._id || item.title} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <p className="font-bold text-primary">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">Qty {item.quantity} • LKR {item.price?.toLocaleString()}</p>
+                    </div>
+                    <p className="font-black text-primary">LKR {(item.price * item.quantity).toLocaleString()}</p>
+                 </div>
+               ))}
+               {receiptItems.length === 0 && (
+                 <div className="px-4 py-3 text-sm text-muted-foreground">No items recorded for this receipt.</div>
+               )}
+             </div>
+
+             <div className="space-y-2">
+               <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>LKR {subtotalPaid.toLocaleString()}</span>
+               </div>
+               <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Platform Fee</span>
+                  <span>LKR {feePaid.toLocaleString()}</span>
+               </div>
+               <div className="flex justify-between items-center pt-3 border-t">
+                  <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Total Paid</span>
+                  <span className="text-2xl font-black text-primary">LKR {totalPaid.toLocaleString()}</span>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={handleDownloadReceipt}
+            className="px-6 py-3 rounded-2xl border border-primary/40 text-primary font-black text-sm uppercase tracking-widest bg-white hover:bg-primary/5 transition-all flex items-center gap-2 shadow-sm"
+          >
+            <FileText size={18} /> Download Receipt
+          </button>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-8 py-3 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20"
+          >
+            Back to Marketplace
+          </button>
         </div>
       </div>
-
-      <button 
-        onClick={() => window.location.reload()}
-        className="px-10 py-4 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20"
-      >
-        Back to Marketplace
-      </button>
-    </div>
-  );
+    );
+  }
 
   // --- CHECKOUT STEP --- //
   if (step === "checkout") return (
@@ -446,6 +569,68 @@ export function UserCartTab() {
               </div>
             </div>
           </div>
+
+          {paymentMethod === 'online' && (
+            <div className="p-6 rounded-3xl border-2 border-primary/20 bg-white shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                    <CreditCard size={22} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-primary">Stripe Card (UI only)</p>
+                    <p className="text-xs text-muted-foreground">Capture card details before redirecting.</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black text-secondary uppercase tracking-widest bg-secondary/10 px-2 py-1 rounded-lg border border-secondary/30">Sandbox</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <input 
+                  type="text"
+                  placeholder="Cardholder Name"
+                  value={cardDetails.name}
+                  onChange={(e) => setCardDetails(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border bg-muted/30 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm"
+                />
+                <input 
+                  type="text"
+                  placeholder="1234 5678 9012 3456"
+                  value={cardDetails.number}
+                  onChange={(e) => setCardDetails(prev => ({ ...prev, number: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border bg-muted/30 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm font-mono tracking-widest"
+                />
+                <div className="grid grid-cols-3 gap-3">
+                  <input 
+                    type="text"
+                    placeholder="MM/YY"
+                    value={cardDetails.expiry}
+                    onChange={(e) => setCardDetails(prev => ({ ...prev, expiry: e.target.value }))}
+                    className="px-4 py-3 rounded-2xl border bg-muted/30 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm"
+                  />
+                  <input 
+                    type="text"
+                    placeholder="CVC"
+                    value={cardDetails.cvc}
+                    onChange={(e) => setCardDetails(prev => ({ ...prev, cvc: e.target.value }))}
+                    className="px-4 py-3 rounded-2xl border bg-muted/30 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm"
+                  />
+                  <input 
+                    type="text"
+                    placeholder="Country"
+                    value={cardDetails.country}
+                    onChange={(e) => setCardDetails(prev => ({ ...prev, country: e.target.value }))}
+                    className="px-4 py-3 rounded-2xl border bg-muted/30 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold">
+                <Lock size={14} className="text-green-600" />
+                <span>UI only: final payment is completed after redirecting to Stripe.</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Order Preview & Action */}

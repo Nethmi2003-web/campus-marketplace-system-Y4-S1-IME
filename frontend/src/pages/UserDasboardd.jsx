@@ -5,8 +5,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Building2, Search, Bell, ShoppingCart, User, LayoutDashboard,
   ShoppingBag, PlusCircle, ShieldCheck, LogOut,
-  Heart, FileText
+  Heart
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { clearSession, getBuyerSessionWithKey } from "../lib/session";
 
 import { MarketplaceHeader } from "../components/MarketplaceHeader";
 import { FeaturedEvents } from "../components/FeaturedEvents";
@@ -20,7 +22,7 @@ import { UserEventsTab } from "../components/UserEventsTab";
 import { UserAnalyticsTab } from "../components/UserAnalyticsTab";
 
 
-function UserNavbar({ user, setActiveTab }) {
+function UserNavbar({ user, setActiveTab, cartCount = 0, wishlistCount = 0 }) {
   return (
     <nav className="h-20 bg-background/95 backdrop-blur-md border-b fixed top-0 left-0 right-0 z-40 px-6 flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -44,14 +46,22 @@ function UserNavbar({ user, setActiveTab }) {
           className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
         >
           <ShoppingCart size={20} />
-          <div className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full" />
+          {cartCount > 0 && (
+            <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-secondary text-white text-[10px] font-black flex items-center justify-center shadow-md">
+              {cartCount > 99 ? "99+" : cartCount}
+            </div>
+          )}
         </button>
         <button 
           onClick={() => setActiveTab('wishlist')}
           className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
         >
           <Heart size={20} />
-          <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+          {wishlistCount > 0 && (
+            <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
+              {wishlistCount > 99 ? "99+" : wishlistCount}
+            </div>
+          )}
         </button>
         <button className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
           <Bell size={20} />
@@ -78,12 +88,15 @@ function UserNavbar({ user, setActiveTab }) {
 // -------------------------------------------------------------
 export default function UserDasboardd() {
   const navigate = useNavigate();
-  const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+  const { session: userInfo, key: sessionKey } = getBuyerSessionWithKey();
   const [activeTab, setActiveTab] = useState("overview");
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   
   // Aggressive Session Validation
   React.useEffect(() => {
-    if (!userInfo.token || userInfo.role !== 'user') {
+    const allowedRoles = new Set(['user', 'seller']);
+    if (!userInfo.token || !allowedRoles.has(userInfo.role)) {
       navigate('/');
       return;
     }
@@ -93,13 +106,13 @@ export default function UserDasboardd() {
           headers: { Authorization: `Bearer ${userInfo.token}` }
         });
         if (res.status === 401 || res.status === 403) {
-          alert('Session Expired: Security mechanism detected a new login. You have been securely signed out.');
-          localStorage.removeItem("std_userInfo");
+          toast.error('Session Expired: Security mechanism detected a new login. You have been securely signed out.');
+          clearSession(sessionKey);
           navigate('/');
         } else if (res.ok) {
            const userData = await res.json();
-           if (userData.role !== 'user') {
-              alert('Unauthorized access. Redirecting...');
+           if (!allowedRoles.has(userData.role)) {
+              toast.error('Unauthorized access. Redirecting...');
               navigate('/');
            }
         }
@@ -108,7 +121,7 @@ export default function UserDasboardd() {
       }
     };
     verifySession();
-  }, [navigate, userInfo.token, userInfo.role]);
+  }, [navigate, userInfo.token, userInfo.role, sessionKey]);
 
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -137,9 +150,26 @@ export default function UserDasboardd() {
     fetchEvents();
   }, []);
 
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        if (!userInfo.token) return;
+        const [cartRes, wishlistRes] = await Promise.all([
+          axios.get("/api/cart", { headers: { Authorization: `Bearer ${userInfo.token}` } }),
+          axios.get("/api/wishlist", { headers: { Authorization: `Bearer ${userInfo.token}` } })
+        ]);
+        setCartCount(cartRes.data?.data?.items?.length || 0);
+        setWishlistCount(wishlistRes.data?.data?.products?.length || 0);
+      } catch (err) {
+        console.error("Count fetch error:", err);
+      }
+    };
+    fetchCounts();
+  }, [userInfo.token]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
-      <UserNavbar user={userInfo} setActiveTab={setActiveTab} />
+      <UserNavbar user={userInfo} setActiveTab={setActiveTab} cartCount={cartCount} wishlistCount={wishlistCount} />
       
       <div className="flex flex-1 min-w-0 pt-20">
         <UserSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -153,7 +183,14 @@ export default function UserDasboardd() {
               </div>
           </div>
 
-          {activeTab === 'marketplace' && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><MarketplaceUI /></div>}
+          {activeTab === 'marketplace' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <MarketplaceUI 
+                onWishlistChange={(count) => setWishlistCount(count)}
+                onCartChange={(count) => setCartCount(count)}
+              />
+            </div>
+          )}
           {activeTab === 'cart' && <UserCartTab />}
 
           {activeTab === 'overview' && (
@@ -173,18 +210,6 @@ export default function UserDasboardd() {
           {activeTab === 'analytics' && <UserAnalyticsTab />}
           {activeTab === 'events' && <UserEventsTab />}
           
-          {activeTab === 'reports' && (
-            <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-muted/20 rounded-[3rem] border-2 border-dashed border-muted">
-               <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center text-primary">
-                  <FileText size={40} />
-               </div>
-               <div>
-                  <h3 className="text-xl font-bold text-primary">Marketplace Reports</h3>
-                  <p className="text-muted-foreground">Detailed reports of your activity will appear here.</p>
-               </div>
-            </div>
-          )}
-          
           {activeTab === 'profile' && (
             <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-muted/20 rounded-[3rem] border-2 border-dashed border-muted">
                <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center text-primary">
@@ -197,11 +222,14 @@ export default function UserDasboardd() {
             </div>
           )}
 
-          {activeTab === 'wishlist' && <UserWishlistTab />}
+          {activeTab === 'wishlist' && (
+            <UserWishlistTab 
+              onWishlistChange={(count) => setWishlistCount(count)}
+            />
+          )}
 
         </main>
       </div>
     </div>
   );
 }
-

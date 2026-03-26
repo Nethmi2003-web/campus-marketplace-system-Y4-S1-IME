@@ -31,7 +31,7 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 const adminOnly = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'sportAdmin')) {
     next();
   } else {
     res.status(403);
@@ -39,4 +39,13 @@ const adminOnly = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly };
+const sellerOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'seller') {
+    next();
+  } else {
+    res.status(403);
+    throw new Error('Access denied – Sellers only');
+  }
+};
+
+module.exports = { protect, adminOnly, sellerOnly };

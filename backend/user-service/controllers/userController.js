@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 // Handle both CommonJS and ES Module default exports gracefully just in case User.js is transpiled or native ESM
 const UserModel = require('../models/User');
 const User = UserModel.default || UserModel;
+const SellerRequest = require('../models/SellerRequest');
 
 // Generate standard JWT token without aggressive concurrent tracking
 const generateToken = (id) =>
@@ -12,7 +13,7 @@ const generateToken = (id) =>
 // @route POST /api/users/register
 // @access Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { firstName, lastName, faculty, universityEmail, password, confirmPassword } = req.body;
+  const { firstName, lastName, faculty, universityEmail, password, confirmPassword, role } = req.body;
 
   if (!firstName || !lastName || !faculty || !universityEmail || !password || !confirmPassword) {
     res.status(400);
@@ -30,6 +31,17 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('User already exists with this university email');
   }
 
+  // Public registration should never be able to create privileged roles.
+  const requestedRole = String(role || 'user').trim().toLowerCase();
+  const allowedRoles = new Set(['user', 'seller']);
+  if (!allowedRoles.has(requestedRole)) {
+    res.status(400);
+    throw new Error('Invalid role');
+  }
+
+  // Sellers require admin approval; create as a normal user first and file a request.
+  const createRole = requestedRole === 'seller' ? 'user' : requestedRole;
+
   // Pass confirmPassword to satisfy Mongoose virtual validation hook
   const user = await User.create({ 
     firstName, 
@@ -37,8 +49,14 @@ const registerUser = asyncHandler(async (req, res) => {
     faculty, 
     universityEmail, 
     password, 
-    confirmPassword 
+    confirmPassword,
+    role: createRole
   });
+
+  let sellerRequest = null;
+  if (requestedRole === 'seller') {
+    sellerRequest = await SellerRequest.create({ user: user._id });
+  }
 
   res.status(201).json({
     _id: user._id,
@@ -46,6 +64,9 @@ const registerUser = asyncHandler(async (req, res) => {
     lastName: user.lastName,
     universityEmail: user.universityEmail,
     role: user.role,
+    sellerRequest: sellerRequest
+      ? { _id: sellerRequest._id, status: sellerRequest.status, createdAt: sellerRequest.createdAt }
+      : null,
     token: generateToken(user._id),
   });
 });
@@ -60,18 +81,42 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ universityEmail: email });
 
   if (user && (await user.matchPassword(password))) {
+    const latestSellerRequest = await SellerRequest.findOne({ user: user._id })
+      .sort('-createdAt')
+      .select('_id status createdAt decidedAt rejectionReason');
     res.json({
       _id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       universityEmail: user.universityEmail,
       role: user.role,
+      sellerRequest: latestSellerRequest
+        ? {
+            _id: latestSellerRequest._id,
+            status: latestSellerRequest.status,
+            createdAt: latestSellerRequest.createdAt,
+            decidedAt: latestSellerRequest.decidedAt,
+            rejectionReason: latestSellerRequest.rejectionReason
+          }
+        : null,
       token: generateToken(user._id),
     });
   } else {
     res.status(401);
     throw new Error('Invalid email or password');
   }
+});
+
+// @desc  Get current user's latest seller request (if any)
+// @route GET /api/users/seller-request
+// @access Private
+const getMySellerRequest = asyncHandler(async (req, res) => {
+  const latest = await SellerRequest.findOne({ user: req.user._id })
+    .sort("-createdAt")
+    .select("_id status createdAt decidedAt rejectionReason decidedBy")
+    .populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
+
+  res.status(200).json({ success: true, data: latest || null });
 });
 
 // @desc  Get logged-in user profile
@@ -120,4 +165,11 @@ const getAllUsers = asyncHandler(async (req, res) => {
   res.json(users);
 });
 
-module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, getAllUsers };
+module.exports = {
+  registerUser,
+  loginUser,
+  getMySellerRequest,
+  getUserProfile,
+  updateUserProfile,
+  getAllUsers
+};

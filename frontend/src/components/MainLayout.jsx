@@ -8,7 +8,11 @@ export default function MainLayout({ children }) {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const location = useLocation();
 
-  const isAuthPage = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
+  const isAuthPage =
+    location.pathname === '/' ||
+    location.pathname === '/login' ||
+    location.pathname === '/register' ||
+    location.pathname === '/seller-request-status';
 
   if (isAuthPage) {
     return (

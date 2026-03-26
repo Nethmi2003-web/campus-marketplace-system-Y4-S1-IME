@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   getItems,
+  getMyItems,
   getItem,
   createItem,
   updateItem,
@@ -9,12 +10,15 @@ const {
 
 const router = express.Router();
 
-const { protect } = require('../../middleware/authMiddleware');
+const { protect, sellerOnly } = require('../../middleware/authMiddleware');
+const { uploadItemImage } = require('../middleware/itemImageUpload');
 
 router
   .route('/')
   .get(getItems)
-  .post(protect, createItem);
+  .post(protect, sellerOnly, uploadItemImage.single('image'), createItem);
+
+router.get('/mine', protect, sellerOnly, getMyItems);
 
 router
   .route('/:id')

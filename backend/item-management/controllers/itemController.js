@@ -5,10 +5,43 @@ const Item = require('../models/Item');
 // @access  Public
 exports.getItems = async (req, res, next) => {
   try {
-    const items = await Item.find({ status: 'available' }).populate({
+    let query = { status: 'available' };
+    
+    if (req.query.category && req.query.category !== 'All Categories') {
+      query.category = req.query.category;
+    }
+
+    const items = await Item.find(query).populate({
       path: 'seller',
       select: 'firstName lastName universityEmail phone'
     });
+
+    res.status(200).json({
+      success: true,
+      count: items.length,
+      data: items
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get items for the current seller
+// @route   GET /api/items/mine
+// @access  Private
+exports.getMyItems = async (req, res, next) => {
+  try {
+    const query = { seller: req.user.id };
+
+    if (req.query.status && req.query.status !== 'all') {
+      query.status = req.query.status;
+    }
+
+    if (req.query.category && req.query.category !== 'All Categories') {
+      query.category = req.query.category;
+    }
+
+    const items = await Item.find(query).sort('-createdAt');
 
     res.status(200).json({
       success: true,
@@ -27,7 +60,7 @@ exports.getItem = async (req, res, next) => {
   try {
     const item = await Item.findById(req.params.id).populate({
       path: 'seller',
-      select: 'name email phone'
+      select: 'firstName lastName universityEmail phone'
     });
 
     if (!item) {
@@ -51,13 +84,26 @@ exports.getItem = async (req, res, next) => {
 // @access  Private
 exports.createItem = async (req, res, next) => {
   try {
+    if (req.file) {
+      const uploadedUrl = req.file.secure_url || req.file.url || req.file.path;
+      if (uploadedUrl) {
+        req.body.imageUrl = uploadedUrl;
+      }
+    }
+
     // Add seller to req.body
     // Assuming authMiddleware adds user to req.user
     if (req.user) {
       req.body.seller = req.user.id;
+      const sellerName = `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim();
+      if (sellerName) req.body.sellerName = sellerName;
     }
 
     const item = await Item.create(req.body);
+    await item.populate({
+      path: 'seller',
+      select: 'firstName lastName universityEmail phone'
+    });
 
     res.status(201).json({
       success: true,

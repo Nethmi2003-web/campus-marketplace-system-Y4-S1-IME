@@ -6,8 +6,10 @@ import {
   PackageSearch, Loader2, X 
 } from "lucide-react";
 import { Button } from "./shared/UI"; // Use the shared premium UI library
+import { toast } from "react-toastify";
+import { getBuyerSessionWithKey } from "../lib/session";
 
-export function UserWishlistTab() {
+export function UserWishlistTab({ onWishlistChange = () => {} }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,7 +17,7 @@ export function UserWishlistTab() {
   const fetchWishlist = async () => {
     try {
       setLoading(true);
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       if (!userInfo.token) {
         setError("Please login to view your wishlist.");
         setLoading(false);
@@ -30,6 +32,7 @@ export function UserWishlistTab() {
         console.log("Wishlist data fetched:", response.data.data);
         const products = response.data.data.products || [];
         setItems(products);
+        onWishlistChange(products.length);
       }
       setLoading(false);
     } catch (err) {
@@ -45,28 +48,36 @@ export function UserWishlistTab() {
 
   const removeFromWishlist = async (productId) => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       await axios.delete(`/api/wishlist/${productId}`, {
         headers: { Authorization: `Bearer ${userInfo.token}` }
       });
-      setItems(prev => prev.filter(item => item._id !== productId));
+      setItems(prev => {
+        const updated = prev.filter(item => item._id !== productId);
+        onWishlistChange(updated.length);
+        return updated;
+      });
     } catch (err) {
       console.error("Error removing from wishlist:", err);
-      alert("Failed to remove item.");
+      toast.error("Failed to remove item.");
     }
   };
 
   const addToCart = async (productId) => {
     try {
-      const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+      const { session: userInfo } = getBuyerSessionWithKey();
       await axios.post("/api/cart", 
         { productId, quantity: 1 },
         { headers: { Authorization: `Bearer ${userInfo.token}` } }
       );
-      alert("Item added to cart!");
+      toast.success("Successfully added to cart", {
+        icon: <ShoppingCart className="text-emerald-500" size={18} />,
+        style: { background: "#ecfdf3", color: "#166534", fontWeight: 700 },
+        progressStyle: { background: "#22c55e" }
+      });
     } catch (err) {
       console.error("Error adding to cart:", err);
-      alert("Failed to add to cart.");
+      toast.error("Failed to add to cart.");
     }
   };
 

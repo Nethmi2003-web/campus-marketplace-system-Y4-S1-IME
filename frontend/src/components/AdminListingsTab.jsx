@@ -6,6 +6,8 @@ import {
   Trash2, Edit3, Eye, CheckCircle, XCircle,
   AlertCircle, Loader2, ArrowUpRight, Tag
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { getAdminSessionWithKey } from "../lib/session";
 
 export function AdminListingsTab() {
   const [items, setItems] = useState([]);
@@ -35,14 +37,23 @@ export function AdminListingsTab() {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
       try {
-        const userInfo = JSON.parse(localStorage.getItem("admin_userInfo") || "{}");
+        const { session: userInfo } = getAdminSessionWithKey();
+        if (!userInfo.token) {
+          toast.info("Please log in as admin.");
+          return;
+        }
         await axios.delete(`/api/items/${id}`, {
           headers: { Authorization: `Bearer ${userInfo.token}` }
         });
         setItems(items.filter(item => item._id !== id));
+        toast.success("Listing deleted", {
+          icon: <CheckCircle className="text-emerald-500" size={18} />,
+          style: { background: "#ecfdf3", color: "#166534", fontWeight: 700 },
+          progressStyle: { background: "#22c55e" }
+        });
       } catch (err) {
         console.error("Error deleting item:", err);
-        alert("Failed to delete item.");
+        toast.error("Failed to delete item.");
       }
     }
   };
@@ -143,7 +154,9 @@ export function AdminListingsTab() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-bold text-foreground">
-                      {item.seller?.firstName ? `${item.seller.firstName} ${item.seller.lastName}` : "Anonymous"}
+                      {item.seller?.firstName
+                        ? `${item.seller.firstName} ${item.seller.lastName}`
+                        : item.sellerName || "Anonymous"}
                     </div>
                     <div className="text-[10px] text-muted-foreground">{item.seller?.universityEmail}</div>
                   </td>

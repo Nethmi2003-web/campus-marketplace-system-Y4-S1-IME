@@ -8,19 +8,21 @@ import {
   PlusCircle, 
   History, 
   BarChart2, 
-  FileText, 
   Heart, 
   User, 
   LogOut,
-  Calendar 
+  Calendar,
+  Store
 } from "lucide-react";
+import { clearSession, getBuyerSessionWithKey } from "../../lib/session";
 
 export function UserSidebar({ activeTab, setActiveTab }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
-    localStorage.removeItem("std_userInfo");
+    const { key } = getBuyerSessionWithKey();
+    clearSession(key);
     navigate("/");
   };
 
@@ -29,7 +31,6 @@ export function UserSidebar({ activeTab, setActiveTab }) {
     { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "cart", label: "My Cart", icon: ShoppingCart },
     { id: "analytics", label: "My Analytics", icon: BarChart2 },
-    { id: "reports", label: "My Reports", icon: FileText },
     { id: "wishlist", label: "Wishlist", icon: Heart },
     { id: "events", label: "Campus Events", icon: Calendar },
     { id: "profile", label: "Profile Settings", icon: User },
@@ -53,6 +54,13 @@ export function UserSidebar({ activeTab, setActiveTab }) {
             {tab.label}
           </button>
         ))}
+        <button
+          onClick={() => navigate("/seller-dashboard")}
+          className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold text-sm group text-left text-white/60 hover:text-white hover:bg-white/5"
+        >
+          <Store size={20} className="text-white/50 group-hover:text-white transition-colors" />
+          Seller Dashboard
+        </button>
       </div>
       <div className="mt-auto p-4 border-t border-white/10">
         <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/50 hover:bg-red-500/20 hover:text-red-400 transition-all font-bold">

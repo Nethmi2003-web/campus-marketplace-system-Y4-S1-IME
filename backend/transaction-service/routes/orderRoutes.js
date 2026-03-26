@@ -4,12 +4,13 @@ const {
   getMyOrders,
   getAllOrders,
   updateOrderStatus,
-  getUserAnalytics
+  getUserAnalytics,
+  getSellerAnalytics
 } = require('../controllers/orderController');
 
 const router = express.Router();
 
-const { protect, adminOnly } = require('../../middleware/authMiddleware');
+const { protect, adminOnly, sellerOnly } = require('../../middleware/authMiddleware');
 
 router.use(protect); // All order routes require authentication
 
@@ -20,6 +21,7 @@ router
 
 router.get('/my', getMyOrders);
 router.get('/analytics', getUserAnalytics);
+router.get('/seller/analytics', sellerOnly, getSellerAnalytics);
 
 router.put('/:id/status', adminOnly, updateOrderStatus); // Only admin can update statuses
 

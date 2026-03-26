@@ -8,8 +8,12 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  XCircle
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import { toast } from "react-toastify";
 import { 
   AreaChart, 
   Area, 
@@ -23,6 +27,7 @@ import {
   Cell
 } from 'recharts';
 import { cn } from "../lib/utils";
+import { getBuyerSessionWithKey } from "../lib/session";
 
 const Card = ({ children, className }) => (
   <div className={cn("bg-card/40 backdrop-blur-xl border-2 border-white rounded-[2.5rem] shadow-xl shadow-black/5 overflow-hidden", className)}>
@@ -34,14 +39,126 @@ export function UserAnalyticsTab() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { session: userInfo } = getBuyerSessionWithKey();
+  const [historyPage, setHistoryPage] = useState(1);
+  const pageSize = 5;
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportOrderId, setReportOrderId] = useState("");
+  const [reportForm, setReportForm] = useState({
+    name: userInfo.firstName ? `${userInfo.firstName} ${userInfo.lastName || ""}`.trim() : "",
+    studentNumber: "",
+    description: "",
+    purchaseDate: "",
+    slip: null
+  });
+
+  const downloadOrderReceipt = (order) => {
+    const doc = new jsPDF();
+    const ref = order.paymentReference || order._id;
+    const issuedOn = new Date(order.createdAt).toLocaleString();
+    const buyerName = `${userInfo.firstName || "Student"} ${userInfo.lastName || ""}`.trim() || "Student Buyer";
+    const subtotal = order.subtotal || order.totalAmount || 0;
+    const fee = order.platformFee || 0;
+    const total = order.totalAmount || 0;
+
+    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const headerHeight = 22;
+    const accentHeight = 5;
+    let y = 15;
+
+    // Top color bar (blue) with orange accent
+    doc.setFillColor(11, 47, 166); // vibrant blue
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+    doc.setFillColor(255, 149, 0); // orange accent
+    doc.rect(0, headerHeight - 2, pageWidth, accentHeight, "F");
+
+    // Header text
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("SLIIT Campus Marketplace", margin, y);
+    y += 7;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text("Payment Receipt (Stripe UI)", margin, y);
+
+    // Reset text color for body
+    doc.setTextColor(33, 37, 41);
+
+    y += 10;
+    doc.setFontSize(9);
+    doc.text(`Receipt #: ${ref}`, margin, y);
+    doc.text(`Issued: ${issuedOn}`, margin + 120, y);
+    y += 5;
+    doc.text(`Buyer: ${buyerName}`, margin, y);
+    y += 5;
+    doc.text(`Payment Method: ${order.paymentMethod}`, margin, y);
+    y += 8;
+
+    // Table headers
+    doc.setFont("helvetica", "bold");
+    doc.text("Item", margin, y);
+    doc.text("Qty", margin + 100, y);
+    doc.text("Price", margin + 120, y);
+    doc.text("Line Total", margin + 150, y);
+    y += 4;
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, 200 - margin, y);
+    y += 6;
+
+    doc.setFont("helvetica", "normal");
+    order.items.forEach((item) => {
+      const title = item.product?.title || item.title || "Item";
+      const qty = item.quantity || 1;
+      const price = item.price || item.product?.price || 0;
+      const lineTotal = price * qty;
+      const wrapped = doc.splitTextToSize(title, 90);
+      doc.text(wrapped, margin, y);
+      doc.text(String(qty), margin + 100, y);
+      doc.text(`LKR ${price.toLocaleString()}`, margin + 120, y);
+      doc.text(`LKR ${lineTotal.toLocaleString()}`, margin + 150, y);
+      y += wrapped.length * 5 + 2;
+      if (y > 260) { // add page if needed
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    y += 4;
+    doc.line(margin, y, 200 - margin, y);
+    y += 6;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Subtotal", margin + 120, y);
+    doc.text(`LKR ${subtotal.toLocaleString()}`, margin + 150, y);
+    y += 6;
+    doc.text("Platform Fee", margin + 120, y);
+    doc.text(`LKR ${fee.toLocaleString()}`, margin + 150, y);
+    y += 6;
+    doc.text("Total Paid", margin + 120, y);
+    doc.text(`LKR ${total.toLocaleString()}`, margin + 150, y);
+
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("This receipt confirms payment capture. Present this to the seller when collecting your items.", margin, y);
+
+    doc.save(`receipt-${ref}.pdf`);
+  };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const userInfo = JSON.parse(localStorage.getItem("std_userInfo") || "{}");
+        const { session: currentUser } = getBuyerSessionWithKey();
+        if (!currentUser?.token) {
+          setError("Please login to view your analytics.");
+          setLoading(false);
+          return;
+        }
         const response = await axios.get("/api/orders/analytics", {
-          headers: { Authorization: `Bearer ${userInfo.token}` }
+          headers: { Authorization: `Bearer ${currentUser.token}` }
         });
         setData(response.data.data);
         setLoading(false);
@@ -108,12 +225,90 @@ export function UserAnalyticsTab() {
     }
   ];
 
+  const totalHistory = data.completedOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalHistory / pageSize));
+  const pagedOrders = data.completedOrders.slice((historyPage - 1) * pageSize, historyPage * pageSize);
+
+  const handleOpenReportModal = () => {
+    setReportOrderId("");
+    setReportForm({
+      name: userInfo.firstName ? `${userInfo.firstName} ${userInfo.lastName || ""}`.trim() : "",
+      studentNumber: "",
+      description: "",
+      purchaseDate: "",
+      slip: null
+    });
+    setIsReportModalOpen(true);
+  };
+
+  const handleReportSubmit = async () => {
+    try {
+      if (!userInfo.token) {
+        toast.info("Please log in to report a payment issue.");
+        return;
+      }
+      if (!reportOrderId) {
+        toast.warn("Please select a purchase from your history.");
+        return;
+      }
+      if (!reportForm.name?.trim()) {
+        toast.warn("Please enter your name.");
+        return;
+      }
+      if (!reportForm.studentNumber?.trim()) {
+        toast.warn("Please enter your student number.");
+        return;
+      }
+      if (!reportForm.purchaseDate) {
+        toast.warn("Please provide the purchase date.");
+        return;
+      }
+      if (!reportForm.description?.trim()) {
+        toast.warn("Please describe the payment issue.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("orderId", reportOrderId);
+      formData.append("name", reportForm.name);
+      formData.append("studentNumber", reportForm.studentNumber);
+      formData.append("description", reportForm.description);
+      formData.append("purchaseDate", reportForm.purchaseDate);
+      if (reportForm.slip) formData.append("slip", reportForm.slip);
+
+      const res = await axios.post("/api/payment-reports", formData, {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+          "Content-Type": "multipart/form-data"
+        }
+      });
+
+      if (res.data?.success) {
+        toast.success("Payment report submitted.");
+        setIsReportModalOpen(false);
+      } else {
+        toast.error(res.data?.message || "Failed to submit report.");
+      }
+    } catch (err) {
+      console.error("Report submit error:", err);
+      toast.error(err.response?.data?.message || "Failed to submit report.");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-4xl font-black text-primary tracking-tight">My Insights</h1>
-        <p className="text-muted-foreground font-medium text-lg text-secondary">Track your spending and item consumption patterns</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-4xl font-black text-primary tracking-tight">My Insights</h1>
+          <p className="text-muted-foreground font-black font-medium text-lg text-secondary">Track your spending and item consumption patterns</p>
+        </div>
+        <button
+          onClick={handleOpenReportModal}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-red-50 text-red-600 font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-200 shadow-sm sm:self-start"
+        >
+          <AlertCircle size={16} /> Report Payment Problem
+        </button>
       </div>
 
       {/* Stat Cards */}
@@ -248,8 +443,8 @@ export function UserAnalyticsTab() {
         </div>
 
         <div className="space-y-4">
-          {data.completedOrders.length > 0 ? (
-            data.completedOrders.map((order) => (
+          {pagedOrders.length > 0 ? (
+            pagedOrders.map((order) => (
               <div 
                 key={order._id} 
                 className="group flex flex-col md:flex-row md:items-center gap-6 p-5 rounded-3xl bg-white transition-all hover:shadow-xl hover:shadow-primary/5 border border-transparent hover:border-primary/10"
@@ -296,6 +491,12 @@ export function UserAnalyticsTab() {
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1">Total Paid</p>
                   <p className="text-xl font-black text-primary">LKR {order.totalAmount.toLocaleString()}</p>
+                  <button 
+                    onClick={() => downloadOrderReceipt(order)}
+                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/5 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all border border-primary/20"
+                  >
+                    <FileText size={14} /> Download Receipt
+                  </button>
                 </div>
               </div>
             ))
@@ -305,7 +506,151 @@ export function UserAnalyticsTab() {
             </div>
           )}
         </div>
-      </Card>
-    </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 text-sm font-bold text-primary">
+            <button
+              onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+              disabled={historyPage === 1}
+              className="px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 disabled:opacity-40 transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-muted-foreground">
+              Page {historyPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setHistoryPage((p) => Math.min(totalPages, p + 1))}
+              disabled={historyPage === totalPages}
+              className="px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 disabled:opacity-40 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+     </Card>
+
+     {/* Payment Report Modal */}
+     {isReportModalOpen && (
+       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+         <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-300">
+           <div className="px-8 py-6 border-b flex items-center justify-between bg-muted/20">
+             <div>
+               <h3 className="text-xl font-black text-primary tracking-tight uppercase">Report Payment Problem</h3>
+               <p className="text-[10px] font-bold text-muted-foreground uppercase mt-0.5">Attach details for the support team</p>
+             </div>
+             <button
+               onClick={() => setIsReportModalOpen(false)}
+               className="p-2 rounded-xl bg-white border hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+               aria-label="Close"
+             >
+               <XCircle size={24} />
+             </button>
+           </div>
+
+           <div className="p-8 space-y-4 max-h-[70vh] overflow-y-auto">
+             <div className="space-y-1">
+               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Purchase</label>
+               <select
+                 value={reportOrderId}
+                 onChange={(e) => {
+                   const id = e.target.value;
+                   setReportOrderId(id);
+                   const selected = data.completedOrders.find(o => o._id === id);
+                   setReportForm(prev => ({
+                     ...prev,
+                     purchaseDate: selected?.createdAt ? selected.createdAt.slice(0, 10) : prev.purchaseDate
+                   }));
+                 }}
+                 className="w-full px-4 py-3 rounded-2xl border bg-white text-sm font-bold text-primary focus:ring-2 focus:ring-primary/10 outline-none"
+               >
+                 <option value="">Choose an order...</option>
+                 {data.completedOrders.map(order => (
+                   <option key={order._id} value={order._id}>
+                     {`#${order._id.slice(-6).toUpperCase()} • LKR ${order.totalAmount.toLocaleString()} • ${new Date(order.createdAt).toLocaleDateString()}`}
+                   </option>
+                 ))}
+               </select>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Name</label>
+                 <input
+                   type="text"
+                   value={reportForm.name}
+                   onChange={(e) => setReportForm(prev => ({ ...prev, name: e.target.value }))}
+                   className="w-full px-4 py-3 rounded-2xl border bg-white text-sm"
+                   required
+                 />
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Student Number</label>
+                 <input
+                   type="text"
+                   value={reportForm.studentNumber}
+                   onChange={(e) => setReportForm(prev => ({ ...prev, studentNumber: e.target.value }))}
+                   className="w-full px-4 py-3 rounded-2xl border bg-white text-sm"
+                   required
+                 />
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Purchase Date</label>
+                 <input
+                   type="date"
+                   value={reportForm.purchaseDate}
+                   onChange={(e) => setReportForm(prev => ({ ...prev, purchaseDate: e.target.value }))}
+                   className="w-full px-4 py-3 rounded-2xl border bg-white text-sm"
+                   required
+                 />
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Payment Slip</label>
+                 <input
+                   type="file"
+                   accept="image/*,application/pdf"
+                   onChange={(e) => setReportForm(prev => ({ ...prev, slip: e.target.files?.[0] || null }))}
+                   className="w-full text-sm"
+                 />
+                 {reportForm.slip?.name && (
+                   <p className="text-[10px] font-bold text-muted-foreground">Selected: {reportForm.slip.name}</p>
+                 )}
+               </div>
+             </div>
+
+             <div className="space-y-1">
+               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</label>
+               <textarea
+                 value={reportForm.description}
+                 onChange={(e) => setReportForm(prev => ({ ...prev, description: e.target.value }))}
+                 rows={4}
+                 className="w-full px-4 py-3 rounded-2xl border bg-white text-sm"
+                 placeholder="Describe what went wrong (payment charged twice, not confirmed, etc.)"
+                 required
+               />
+             </div>
+
+             <div className="flex flex-col sm:flex-row gap-3 justify-end pt-2">
+               <button
+                 type="button"
+                 onClick={() => setIsReportModalOpen(false)}
+                 className="px-5 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest text-muted-foreground hover:bg-muted/30 transition-colors"
+               >
+                 Cancel
+               </button>
+               <button
+                 type="button"
+                 onClick={handleReportSubmit}
+                 className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+               >
+                 Submit Report
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+     )}
+   </div>
   );
 }

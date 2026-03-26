@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { UserPlus, ShieldCheck, Mail, Lock, User, Building2 } from "lucide-react";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/shared/UI";
+import { setSessionForRole } from "../lib/session";
+import { toast } from "react-toastify";
 
 
 // UI Components removed, now using shared UI library from ../components/shared/UI
@@ -13,6 +15,7 @@ function RegisterPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    role: "user",
     faculty: "",
     universityEmail: "",
     password: "",
@@ -47,9 +50,16 @@ function RegisterPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      // Store student details securely in isolated key
-      localStorage.setItem("std_userInfo", JSON.stringify(data));
-      navigate("/user-dashboard");
+      // Store user into role-specific key (buyer vs seller vs admin)
+      setSessionForRole(data);
+      if (data?.sellerRequest?.status === "pending") {
+        toast.success("Seller request submitted. Please wait for admin approval.", { autoClose: 2500 });
+        navigate("/seller-request-status");
+        return;
+      } else {
+        toast.success("Account created successfully!", { autoClose: 1500 });
+      }
+      navigate(data.role === "seller" ? "/seller-dashboard" : "/user-dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -85,6 +95,19 @@ function RegisterPage() {
               <Input required name="lastName" value={formData.lastName} onChange={handleChange} type="text" placeholder="Doe" className="rounded-xl h-12 border-muted bg-muted/30 focus:bg-white transition-all" />
             </div>
             <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Account Type</label>
+              <select
+                required
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full rounded-xl h-12 border border-muted bg-muted/30 focus:bg-white transition-all px-3 font-medium outline-none focus:ring-4 focus:ring-primary/5"
+              >
+                <option value="user">Student / Buyer</option>
+                <option value="seller">Seller (Requires Admin Approval)</option>
+              </select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Faculty</label>
               <Input required name="faculty" value={formData.faculty} onChange={handleChange} type="text" placeholder="e.g. Computing, Engineering" className="rounded-xl h-12 border-muted bg-muted/30 focus:bg-white transition-all" />
             </div>
@@ -102,7 +125,11 @@ function RegisterPage() {
             </div>
             <div className="md:col-span-2 pt-2">
               <Button disabled={loading} type="submit" className="w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-primary/20 bg-primary">
-                {loading ? "Creating Account..." : "Create Student Account"}
+                {loading
+                  ? "Creating Account..."
+                  : formData.role === "seller"
+                  ? "Submit Seller Request"
+                  : "Create Student Account"}
               </Button>
             </div>
           </CardContent>

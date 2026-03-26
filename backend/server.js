@@ -26,9 +26,16 @@ app.use('/api/items', require('./item-management/routes/itemRoutes'));
 app.use('/api/cart', require('./transaction-service/routes/cartRoutes'));
 app.use('/api/orders', require('./transaction-service/routes/orderRoutes'));
 app.use('/api/wishlist', require('./transaction-service/routes/wishlistRoutes'));
+app.use('/api/payment-reports', require('./transaction-service/routes/paymentReportRoutes'));
 
 // Component 4 – Marketplace Features (Events, etc.)
 app.use('/api/events', require('./makrketPlace_features/routes/eventRoutes'));
+
+// Component 5 – Platform Settings
+app.use('/api/settings', require('./item-management/routes/settingsRoutes'));
+
+// Component 6 – Admin Dashboard Stats and Management
+app.use('/api/admin', require('./user-service/routes/adminRoutes'));
 
 // Health check
 app.get('/', (req, res) => {
