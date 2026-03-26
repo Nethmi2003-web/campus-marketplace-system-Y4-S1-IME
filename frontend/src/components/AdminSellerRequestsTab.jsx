@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAdminSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminSellerRequestsTab() {
   const [requests, setRequests] = React.useState([]);
@@ -19,6 +20,8 @@ export function AdminSellerRequestsTab() {
   const [statusFilter, setStatusFilter] = React.useState("pending"); // pending | approved | rejected | all
   const [expandedId, setExpandedId] = React.useState(null);
   const [processingId, setProcessingId] = React.useState(null);
+  const [page, setPage] = React.useState(1);
+  const pageSize = 10;
 
   const fetchRequests = React.useCallback(async () => {
     try {
@@ -48,6 +51,21 @@ export function AdminSellerRequestsTab() {
   React.useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  React.useEffect(() => {
+    setPage(1);
+    setExpandedId(null);
+  }, [statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(requests.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedRequests = requests.slice(startIndex, endIndex);
+
+  React.useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   const handleApprove = async (id) => {
     try {
@@ -145,7 +163,7 @@ export function AdminSellerRequestsTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {requests.map((r) => {
+              {pagedRequests.map((r) => {
                 const status = r.status || "pending";
                 const isPending = status === "pending";
                 const u = r.user || {};
@@ -246,6 +264,19 @@ export function AdminSellerRequestsTab() {
             </div>
           )}
         </div>
+
+        {!loading && !error && requests.length > 0 && (
+          <div className="p-6 border-t bg-muted/10">
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              from={requests.length === 0 ? 0 : startIndex + 1}
+              to={Math.min(endIndex, requests.length)}
+              total={requests.length}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export function UserAnalyticsTab() {
   const [error, setError] = useState(null);
   const { session: userInfo } = getBuyerSessionWithKey();
   const [historyPage, setHistoryPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportOrderId, setReportOrderId] = useState("");
   const [reportForm, setReportForm] = useState({

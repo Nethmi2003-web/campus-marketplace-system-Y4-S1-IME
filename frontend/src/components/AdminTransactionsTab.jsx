@@ -4,11 +4,14 @@ import { cn } from '../lib/utils';
 import { Receipt, CheckCircle2, XCircle, Clock, ArrowUpRight, ArrowDownRight, Loader2,Search, Filter, User } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { getAdminSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminTransactionsTab() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [granularity, setGranularity] = useState("full"); // "full" | "w1" | "w2" | "w3" | "w4"
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -101,6 +104,20 @@ export function AdminTransactionsTab() {
     }
     return data;
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [orders.length]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedTransactions = orders.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   if (loading) {
     return (
@@ -242,7 +259,7 @@ export function AdminTransactionsTab() {
             <span className="text-[10px] font-black text-white bg-primary px-3 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-primary/20">Active Records</span>
           </div>
           <div className="divide-y overflow-y-auto max-h-[340px] flex-1">
-            {orders.slice(0, 15).map((tx) => (
+            {pagedTransactions.map((tx) => (
               <div key={tx._id} className="px-8 py-4 flex items-center justify-between gap-6 hover:bg-muted/30 transition-colors group">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-primary truncate group-hover:translate-x-1 transition-transform">{tx.items[0]?.product?.title || "Course Material"}</p>
@@ -277,6 +294,17 @@ export function AdminTransactionsTab() {
                  <p className="text-muted-foreground font-bold">No transactions recorded yet.</p>
               </div>
             )}
+          </div>
+
+          <div className="px-8 py-6 border-t bg-muted/10">
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              from={orders.length === 0 ? 0 : startIndex + 1}
+              to={Math.min(endIndex, orders.length)}
+              total={orders.length}
+            />
           </div>
         </div>
       </div>

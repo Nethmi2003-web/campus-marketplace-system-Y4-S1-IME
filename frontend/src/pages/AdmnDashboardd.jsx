@@ -166,7 +166,7 @@ export default function AdmnDashboardd() {
   const adminStats = [
     { title: "Total Users", value: stats?.totalUsers || "0", change: "+12.5%", trend: "up", icon: Users },
     { title: "Active Listings", value: stats?.activeListings || "0", change: "+5.2%", trend: "up", icon: ShoppingBag },
-    { title: "Upcoming Events", value: stats?.upcomingEvents || "0", change: "Live", trend: "up", icon: Calendar },
+    { title: "Active Sellers", value: stats?.activeSellers || "0", change: "Approved", trend: "up", icon: UserCheck },
     { title: "Platform Fees", value: `LKR ${stats?.totalFees?.toLocaleString() || "0"}`, change: "+18%", trend: "up", icon: BadgeDollarSign }
   ];
 

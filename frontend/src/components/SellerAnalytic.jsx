@@ -13,12 +13,15 @@ import {
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { getSellerSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 // Seller-only version of the admin Financial Dashboard.
 export function SellerAnalytic() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const [granularity, setGranularity] = useState("full"); // "full" | "w1" | "w2" | "w3" | "w4"
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -145,6 +148,20 @@ export function SellerAnalytic() {
 
     return data;
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [orders.length]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedOrders = orders.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   if (loading) {
     return (
@@ -355,7 +372,7 @@ export function SellerAnalytic() {
             </span>
           </div>
           <div className="divide-y overflow-y-auto max-h-[340px] flex-1">
-            {orders.slice(0, 15).map((tx) => (
+            {pagedOrders.map((tx) => (
               <div key={tx._id} className="px-8 py-4 flex items-center justify-between gap-6 hover:bg-muted/30 transition-colors group">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-primary truncate group-hover:translate-x-1 transition-transform">
@@ -406,6 +423,17 @@ export function SellerAnalytic() {
                 <p className="text-muted-foreground font-bold">No orders for your items yet.</p>
               </div>
             )}
+          </div>
+
+          <div className="px-8 py-6 border-t bg-muted/10">
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              from={orders.length === 0 ? 0 : startIndex + 1}
+              to={Math.min(endIndex, orders.length)}
+              total={orders.length}
+            />
           </div>
         </div>
       </div>
@@ -527,4 +555,3 @@ export function SellerAnalytic() {
     </div>
   );
 }
-

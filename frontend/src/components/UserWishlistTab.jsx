@@ -8,11 +8,14 @@ import {
 import { Button } from "./shared/UI"; // Use the shared premium UI library
 import { toast } from "react-toastify";
 import { getBuyerSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function UserWishlistTab({ onWishlistChange = () => {} }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const fetchWishlist = async () => {
     try {
@@ -45,6 +48,20 @@ export function UserWishlistTab({ onWishlistChange = () => {} }) {
   useEffect(() => {
     fetchWishlist();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedItems = items.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   const removeFromWishlist = async (productId) => {
     try {
@@ -138,7 +155,7 @@ export function UserWishlistTab({ onWishlistChange = () => {} }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-        {items.map(item => (
+        {pagedItems.map(item => (
           <div key={item._id} className="group overflow-hidden border-2 border-white backdrop-blur-xl hover:border-primary/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-700 bg-card/40 rounded-[2.5rem] flex flex-col text-card-foreground shadow-xl shadow-black/5">
             {/* Image Section */}
             <div className="relative h-48 overflow-hidden rounded-t-[2.5rem]">
@@ -190,6 +207,17 @@ export function UserWishlistTab({ onWishlistChange = () => {} }) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="pt-2">
+        <PaginationControls
+          currentPage={safePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          from={items.length === 0 ? 0 : startIndex + 1}
+          to={Math.min(endIndex, items.length)}
+          total={items.length}
+        />
       </div>
     </div>
   );

@@ -6,10 +6,6 @@ import { Button, Badge, Input } from "./shared/UI";
 import { toast } from "react-toastify";
 import { getBuyerSessionWithKey } from "../lib/session";
 
-// --- INLINE UI COMPONENTS --- //
-
-// Inline components removed, now using shared UI library
-
 function InlineItemCard({
   id,
   title,
@@ -159,7 +155,7 @@ export default function MarketplaceUI({ onWishlistChange = () => {}, onCartChang
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const ITEMS_PER_PAGE = 8;
+  const ITEMS_PER_PAGE = 10;
 
   const fetchData = async () => {
     try {

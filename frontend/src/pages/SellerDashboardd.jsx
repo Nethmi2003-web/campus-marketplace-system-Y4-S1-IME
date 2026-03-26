@@ -21,8 +21,9 @@ import {
 import { toast } from "react-toastify";
 import { clearSession, getSellerSessionWithKey } from "../lib/session";
 import { SellerAnalytic } from "../components/SellerAnalytic";
+import { PaginationControls } from "../components/shared/PaginationControls";
 
-function SellerNavbar({ user, onGoBuyer }) {
+function SellerNavbar({ user }) {
   return (
     <nav className="h-20 bg-background/95 backdrop-blur-md border-b fixed top-0 left-0 right-0 z-40 px-6 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -32,12 +33,6 @@ function SellerNavbar({ user, onGoBuyer }) {
         </h2>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          onClick={onGoBuyer}
-          className="hidden sm:inline-flex px-4 py-2 rounded-xl bg-primary/5 text-primary font-black text-[10px] uppercase tracking-widest border border-primary/10 hover:bg-primary hover:text-white transition-colors"
-        >
-          Buyer Dashboard
-        </button>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-foreground">{user?.firstName || "Seller"}</p>
@@ -117,6 +112,8 @@ export default function SellerDashboardd() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [listingsPage, setListingsPage] = useState(1);
+  const listingsPageSize = 10;
 
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({ price: "", stockQuantity: "", status: "available" });
@@ -141,6 +138,20 @@ export default function SellerDashboardd() {
       return matchesSearch;
     });
   }, [items, searchQuery]);
+
+  useEffect(() => {
+    setListingsPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const listingsTotalPages = Math.max(1, Math.ceil(filteredItems.length / listingsPageSize));
+  const listingsSafePage = Math.min(listingsPage, listingsTotalPages);
+  const listingsStartIndex = (listingsSafePage - 1) * listingsPageSize;
+  const listingsEndIndex = listingsStartIndex + listingsPageSize;
+  const pagedListings = filteredItems.slice(listingsStartIndex, listingsEndIndex);
+
+  useEffect(() => {
+    setListingsPage((p) => Math.min(p, listingsTotalPages));
+  }, [listingsTotalPages]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -307,7 +318,7 @@ export default function SellerDashboardd() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
-      <SellerNavbar user={me || userInfo} onGoBuyer={() => navigate("/user-dashboard")} />
+      <SellerNavbar user={me || userInfo} />
 
       <div className="flex flex-1 min-w-0 pt-20">
         <SellerSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
@@ -433,7 +444,7 @@ export default function SellerDashboardd() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50">
-                        {filteredItems.map((item) => (
+                        {pagedListings.map((item) => (
                           <tr key={item._id} className="hover:bg-muted/30 transition-all group">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-4">
@@ -539,6 +550,17 @@ export default function SellerDashboardd() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+
+                  <div className="p-6 border-t bg-muted/10">
+                    <PaginationControls
+                      currentPage={listingsSafePage}
+                      totalPages={listingsTotalPages}
+                      onPageChange={setListingsPage}
+                      from={filteredItems.length === 0 ? 0 : listingsStartIndex + 1}
+                      to={Math.min(listingsEndIndex, filteredItems.length)}
+                      total={filteredItems.length}
+                    />
                   </div>
                 </div>
               )}

@@ -4,11 +4,14 @@ import { cn } from "../lib/utils";
 import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAdminSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminPaymentReportsTab() {
   const [reports, setReports] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [page, setPage] = React.useState(1);
+  const pageSize = 10;
 
   const handleViewSlip = async (reportId) => {
     const { session: userInfo } = getAdminSessionWithKey();
@@ -71,6 +74,20 @@ export function AdminPaymentReportsTab() {
     fetchReports();
   }, [fetchReports]);
 
+  React.useEffect(() => {
+    setPage(1);
+  }, [reports.length]);
+
+  const totalPages = Math.max(1, Math.ceil(reports.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedReports = reports.slice(startIndex, endIndex);
+
+  React.useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -104,7 +121,7 @@ export function AdminPaymentReportsTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {reports.map((r) => {
+              {pagedReports.map((r) => {
                 const status = r.status || "submitted";
                 const orderId = r.order?._id || "";
                 const shortOrder = orderId ? orderId.slice(-6).toUpperCase() : "N/A";
@@ -188,9 +205,22 @@ export function AdminPaymentReportsTab() {
                 );
               })}
             </div>
-	          )}
-	        </div>
-	      </div>
-	    </div>
-	  );
+          )}
+        </div>
+
+        {!loading && !error && reports.length > 0 && (
+          <div className="p-6 border-t bg-muted/10">
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              from={reports.length === 0 ? 0 : startIndex + 1}
+              to={Math.min(endIndex, reports.length)}
+              total={reports.length}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

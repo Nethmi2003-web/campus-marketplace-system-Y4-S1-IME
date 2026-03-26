@@ -8,12 +8,15 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAdminSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminPricingTab({ onOpenPaymentReports = () => {} }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [editingId, setEditingId] = useState(null);
   const [newPrice, setNewPrice] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -126,6 +129,20 @@ export function AdminPricingTab({ onOpenPaymentReports = () => {} }) {
   const filteredItems = items.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedItems = filteredItems.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   if (loading) {
     return (
@@ -281,7 +298,7 @@ export function AdminPricingTab({ onOpenPaymentReports = () => {} }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {filteredItems.map((item) => (
+              {pagedItems.map((item) => (
                 <tr key={item._id} className="hover:bg-muted/30 transition-all group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
@@ -372,6 +389,17 @@ export function AdminPricingTab({ onOpenPaymentReports = () => {} }) {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="p-6 border-t bg-muted/10">
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            from={filteredItems.length === 0 ? 0 : startIndex + 1}
+            to={Math.min(endIndex, filteredItems.length)}
+            total={filteredItems.length}
+          />
         </div>
       </div>
 

@@ -8,12 +8,15 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAdminSessionWithKey } from "../lib/session";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminListingsTab() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const fetchItems = async () => {
     try {
@@ -63,6 +66,20 @@ export function AdminListingsTab() {
     item.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedItems = filteredItems.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
   if (loading) {
     return (
       <div className="h-[400px] flex flex-col items-center justify-center space-y-4">
@@ -100,7 +117,7 @@ export function AdminListingsTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: "Total Listings", value: items.length, icon: ShoppingBag, color: "bg-primary/10 text-primary" },
-          { label: "Total Value", value: `LKR ${items.reduce((sum, item) => sum + item.price, 0).toLocaleString()}`, icon: Tag, color: "bg-secondary/10 text-secondary" },
+          { label: "Total Value", value: `LKR ${items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.stockQuantity ?? 1)), 0).toLocaleString()}`, icon: Tag, color: "bg-secondary/10 text-secondary" },
           { label: "Flagged Items", value: "0", icon: AlertCircle, color: "bg-red-100 text-red-600" },
         ].map((s, i) => (
           <div key={i} className="rounded-2xl border bg-card p-6 shadow-xl flex items-center gap-4">
@@ -131,7 +148,7 @@ export function AdminListingsTab() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredItems.map((item) => (
+              {pagedItems.map((item) => (
                 <tr key={item._id} className="hover:bg-muted/20 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -197,13 +214,24 @@ export function AdminListingsTab() {
               ))}
               {filteredItems.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-muted-foreground font-medium">
+                  <td colSpan="7" className="px-6 py-12 text-center text-muted-foreground font-medium">
                     No listings found matching your criteria.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="p-6 border-t bg-muted/10">
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            from={filteredItems.length === 0 ? 0 : startIndex + 1}
+            to={Math.min(endIndex, filteredItems.length)}
+            total={filteredItems.length}
+          />
         </div>
       </div>
     </div>

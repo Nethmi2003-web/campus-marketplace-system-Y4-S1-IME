@@ -2,18 +2,17 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User').default || require('../models/User');
 const Item = require('../../item-management/models/Item');
 const Order = require('../../transaction-service/models/Order');
-const Event = require('../../makrketPlace_features/models/Event');
 
 // @desc    Get platform-wide statistics for Admin Overview
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 exports.getPlatformStats = asyncHandler(async (req, res) => {
   // 1. Core Counts
-  const [totalUsers, availableListings, totalOrders, upcomingEvents, recentListings] = await Promise.all([
+  const [totalUsers, activeSellers, availableListings, totalOrders, recentListings] = await Promise.all([
     User.countDocuments(),
+    User.countDocuments({ role: 'seller' }),
     Item.countDocuments({ status: 'available' }),
     Order.countDocuments({ paymentStatus: 'completed' }),
-    Event.countDocuments({ status: 'Upcoming' }),
     Item.find().sort('-createdAt').limit(5).populate('seller', 'firstName lastName')
   ]);
 
@@ -48,9 +47,9 @@ exports.getPlatformStats = asyncHandler(async (req, res) => {
     data: {
       stats: {
         totalUsers,
+        activeSellers,
         activeListings: availableListings,
         totalFees,
-        upcomingEvents,
         totalOrders
       },
       trend: last7Days,

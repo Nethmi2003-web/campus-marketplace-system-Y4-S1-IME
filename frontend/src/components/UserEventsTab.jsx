@@ -3,12 +3,15 @@ import axios from "axios";
 import { Search, Filter, Calendar, Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
 import { EventCard } from "./EventCard";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function UserEventsTab() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -32,6 +35,20 @@ export function UserEventsTab() {
     const matchesCategory = activeCategory === "All" || event.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, activeCategory]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedEvents = filteredEvents.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -88,21 +105,32 @@ export function UserEventsTab() {
           ))}
         </div>
       ) : filteredEvents.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredEvents.map((event) => (
-            <EventCard
-              key={event._id}
-              id={event._id}
-              title={event.name}
-              description={event.description}
-              date={new Date(event.date).toLocaleDateString()}
-              time={event.time}
-              location={event.venue}
-              category={event.category}
-              imageUrl={event.imageUrl}
-              status="open"
-            />
-          ))}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {pagedEvents.map((event) => (
+              <EventCard
+                key={event._id}
+                id={event._id}
+                title={event.name}
+                description={event.description}
+                date={new Date(event.date).toLocaleDateString()}
+                time={event.time}
+                location={event.venue}
+                category={event.category}
+                imageUrl={event.imageUrl}
+                status="open"
+              />
+            ))}
+          </div>
+
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            from={filteredEvents.length === 0 ? 0 : startIndex + 1}
+            to={Math.min(endIndex, filteredEvents.length)}
+            total={filteredEvents.length}
+          />
         </div>
       ) : (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-card/50 rounded-[3rem] border-2 border-dashed border-muted">

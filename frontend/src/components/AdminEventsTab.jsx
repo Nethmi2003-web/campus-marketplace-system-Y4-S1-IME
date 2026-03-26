@@ -3,12 +3,15 @@ import axios from "axios";
 import { PlusCircle, Image as ImageIcon, Calendar as CalendarIcon, MapPin, Users, Loader2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { toast } from "react-toastify";
+import { PaginationControls } from "./shared/PaginationControls";
 
 export function AdminEventsTab() {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   
   const [formData, setFormData] = useState({
     name: "",
@@ -26,6 +29,20 @@ export function AdminEventsTab() {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [events.length]);
+
+  const totalPages = Math.max(1, Math.ceil(events.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedEvents = events.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   const fetchEvents = async () => {
     setIsLoading(true);
@@ -195,7 +212,7 @@ export function AdminEventsTab() {
         ) : events.length === 0 ? (
            <div className="col-span-full text-center py-10 text-muted-foreground font-medium border-2 border-dashed rounded-2xl">No events found. Create one above!</div>
         ) : (
-          events.map(event => (
+          pagedEvents.map(event => (
             <div key={event._id} className="bg-white rounded-2xl overflow-hidden border-2 border-border shadow-sm group hover:border-primary/30 transition-all">
               <div className="h-48 bg-muted relative overflow-hidden">
                 <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -225,6 +242,19 @@ export function AdminEventsTab() {
           ))
         )}
       </div>
+
+      {!isLoading && events.length > 0 && (
+        <div className="pt-2">
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            from={events.length === 0 ? 0 : startIndex + 1}
+            to={Math.min(endIndex, events.length)}
+            total={events.length}
+          />
+        </div>
+      )}
     </div>
   );
 }
