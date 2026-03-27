@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getPlatformStats } = require('../controllers/adminController');
+const { getPlatformStats, getAllSellersAnalytics } = require('../controllers/adminController');
 const {
   listSellerRequests,
   getSellerRequest,
@@ -10,6 +10,7 @@ const {
 const { protect, adminOnly } = require('../../middleware/authMiddleware');
 
 router.get('/stats', protect, adminOnly, getPlatformStats);
+router.get('/sellers/analytics', protect, adminOnly, getAllSellersAnalytics);
 
 router.get('/seller-requests', protect, adminOnly, listSellerRequests);
 router.get('/seller-requests/:id', protect, adminOnly, getSellerRequest);

@@ -63,7 +63,7 @@ function AdminSidebar({ activeTab, setActiveTab }) {
   const tabs = [
     { id: "overview",     label: "System Overview",     icon: LayoutDashboard },
     { id: "users",        label: "Manage Users",         icon: Users },
-    { id: "sellerRequests", label: "Seller Requests",    icon: UserCheck },
+    { id: "sellerRequests", label: "Sellers",            icon: UserCheck },
     { id: "listings",     label: "Active Listings",      icon: ShoppingBag },
     { id: "transactions", label: "Transactions",         icon: Receipt },
     { id: "pricing",      label: "Pricing Management",   icon: BadgeDollarSign },
