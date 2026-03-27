@@ -1,5 +1,5 @@
 <h1 align="center">
-  🎓 Campus Marketplace System
+  🎓 UNI SWAP Campus MarketPlace
 </h1>
 
 <p align="center">
@@ -37,7 +37,7 @@
 
 ## 🌐 Project Overview
 
-**Campus Marketplace** is a full-stack MERN web application designed for university students to securely buy and sell items within their campus community. The platform ensures only verified university members can access the system, enforces secure transactions, and leverages AI/ML capabilities to build trust, detect fraud, and offer personalized recommendations.
+**UNI SWAP Campus MarketPlace** is a full-stack MERN web application designed for university students to securely buy and sell items within their campus community. The platform ensures only verified university members can access the system, enforces secure transactions, and leverages AI/ML capabilities to build trust, detect fraud, and offer personalized recommendations.
 
 The system is divided into **four core components**, each developed and managed by a dedicated team member:
 
@@ -346,5 +346,5 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ---
 
 <p align="center">
-   Campus Marketplace Team | SLIIT – ITPM 2026
+   UNI SWAP Campus MarketPlace Team | SLIIT – ITPM 2026
 </p>

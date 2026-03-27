@@ -1,7 +1,7 @@
 {
   "name": "campus-marketplace-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Campus Marketplace System – React + Vite",
+  "description": "Frontend for UNI SWAP Campus MarketPlace – React + Vite",
   "type": "module",
   "scripts": {
     "dev": "vite",

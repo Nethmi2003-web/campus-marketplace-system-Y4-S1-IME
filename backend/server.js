@@ -39,7 +39,7 @@ app.use('/api/admin', require('./user-service/routes/adminRoutes'));
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ message: '🎓 Campus Marketplace API is running!' });
+  res.json({ message: '🎓 UNI SWAP Campus MarketPlace API is running!' });
 });
 
 // 404 handler

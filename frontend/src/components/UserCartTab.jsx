@@ -169,7 +169,7 @@ export function UserCartTab() {
       .join("\n");
     const issuedOn = new Date(orderData.createdAt || Date.now()).toLocaleString();
     const receiptText = [
-      "SLIIT Campus Marketplace - Payment Receipt",
+      "UNI SWAP Campus MarketPlace - Payment Receipt",
       `Receipt #: ${orderData.paymentReference || orderData._id || `PAY-${Date.now()}`}`,
       `Issued: ${issuedOn}`,
       `Payment Method: ${orderData.paymentMethod || paymentMethod}`,
@@ -419,7 +419,7 @@ export function UserCartTab() {
           <div className="bg-gradient-to-r from-primary to-[#001f5c] text-white px-8 py-6 flex items-center justify-between">
              <div>
                 <p className="text-xs uppercase font-black tracking-widest text-white/70">Stripe Payment Receipt</p>
-                <h3 className="text-2xl font-black">Campus Marketplace</h3>
+                <h3 className="text-2xl font-black">UNI SWAP Campus MarketPlace</h3>
              </div>
              <div className="text-right">
                 <p className="text-sm font-bold">Issued {issuedOn}</p>
@@ -665,7 +665,7 @@ export function UserCartTab() {
                {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <ArrowRight size={18} />}
              </button>
              <p className="text-center text-[10px] text-white/40 font-bold px-4 leading-relaxed">
-               By clicking the button, you agree to the SLIIT Campus Marketplace terms and buyer protection policies.
+               By clicking the button, you agree to the UNI SWAP Campus MarketPlace terms and buyer protection policies.
              </p>
           </div>
         </div>

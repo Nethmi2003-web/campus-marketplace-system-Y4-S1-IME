@@ -6,10 +6,10 @@ export function UserNavbar({ user, setActiveTab, cartCount = 0, wishlistCount = 
     <nav className="h-20 bg-background/95 backdrop-blur-md border-b fixed top-0 left-0 right-0 z-40 px-6 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-          <span className="text-white font-black text-xl">S</span>
+          <span className="text-white font-black text-xl">UNI</span>
         </div>
         <div className="hidden md:flex flex-col cursor-pointer" onClick={() => setActiveTab("overview")}>
-          <span className="font-black text-primary leading-tight tracking-tight">SLIIT MARKETPLACE</span>
+          <span className="font-black text-primary leading-tight tracking-tight">UNI SWAP MARKETPLACE</span>
           <span className="text-[10px] uppercase font-black text-secondary tracking-widest">Digital Campus</span>
         </div>
       </div>

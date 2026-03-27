@@ -303,7 +303,7 @@ export default function MarketplaceUI({ onWishlistChange = () => {}, onCartChang
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-black text-primary tracking-tight">Campus Marketplace</h1>
+            <h1 className="text-4xl font-black text-primary tracking-tight">UNI SWAP Campus MarketPlace</h1>
             <Badge variant="secondary" className="bg-secondary/10 text-secondary border-secondary/20 font-black px-3 py-1">
               {filteredItems.length} Items Live
             </Badge>

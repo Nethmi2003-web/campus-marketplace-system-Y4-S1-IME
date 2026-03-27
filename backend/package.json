@@ -1,7 +1,7 @@
 {
   "name": "campus-marketplace-backend",
   "version": "1.0.0",
-  "description": "Backend API for Campus Marketplace System – MERN Stack",
+  "description": "Backend API for UNI SWAP Campus MarketPlace – MERN Stack",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,7 +13,7 @@
     "mern",
     "sliit"
   ],
-  "author": "Campus Marketplace Team – SLIIT ITPM 2026",
+  "author": "UNI SWAP Campus MarketPlace Team – SLIIT ITPM 2026",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
