@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 280,
+    },
     sessionVersion: {
       type: Number,
       default: 0,

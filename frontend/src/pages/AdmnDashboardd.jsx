@@ -14,6 +14,9 @@ import { AdminListingsTab } from "../components/AdminListingsTab";
 import { AdminEventsTab } from "../components/AdminEventsTab";
 import { AdminPaymentReportsTab } from "../components/AdminPaymentReportsTab";
 import { AdminSellerRequestsTab } from "../components/AdminSellerRequestsTab";
+import { AdminUsersTab } from "../components/AdminUsersTab";
+import { AdminModerationTab } from "../components/AdminModerationTab";
+import { AdminSettingsTab } from "../components/AdminSettingsTab";
 import { toast } from "react-toastify";
 import { clearSession, getAdminSessionWithKey, STORAGE_KEYS } from "../lib/session";
 
@@ -309,15 +312,7 @@ export default function AdmnDashboardd() {
           )}
 
           {/* ── USERS ── */}
-          {activeTab === 'users' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h1 className="text-3xl font-black text-primary">Manage Users</h1>
-              <p className="text-muted-foreground font-medium">View and manage all registered campus marketplace users</p>
-              <div className="rounded-2xl border bg-card shadow-xl p-6">
-                <p className="text-muted-foreground text-center py-16">User management table coming soon.</p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'users' && <AdminUsersTab />}
 
           {/* ── SELLER REQUESTS ── */}
           {activeTab === 'sellerRequests' && <AdminSellerRequestsTab />}
@@ -336,13 +331,11 @@ export default function AdmnDashboardd() {
 
           {/* ── MODERATION ── */}
           {activeTab === 'moderation' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h1 className="text-3xl font-black text-primary">Trust & Safety</h1>
-              <p className="text-muted-foreground font-medium">Review flagged content and reported listings</p>
-              <div className="rounded-2xl border bg-card shadow-xl p-6">
-                <p className="text-muted-foreground text-center py-16">Moderation queue coming soon.</p>
-              </div>
-            </div>
+            <AdminModerationTab
+              onOpenPaymentReports={() => setActiveTab('paymentReports')}
+              onOpenSellerRequests={() => setActiveTab('sellerRequests')}
+              onOpenListings={() => setActiveTab('listings')}
+            />
           )}
 
           {/* ── EVENTS ── */}
@@ -350,13 +343,7 @@ export default function AdmnDashboardd() {
 
           {/* ── SETTINGS ── */}
           {activeTab === 'settings' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h1 className="text-3xl font-black text-primary">Platform Settings</h1>
-              <p className="text-muted-foreground font-medium">Configure global platform behaviour</p>
-              <div className="rounded-2xl border bg-card shadow-xl p-6">
-                <p className="text-muted-foreground text-center py-16">Settings panel coming soon.</p>
-              </div>
-            </div>
+            <AdminSettingsTab onOpenPricing={() => setActiveTab('pricing')} />
           )}
 
         </main>

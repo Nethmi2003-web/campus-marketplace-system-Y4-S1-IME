@@ -1,87 +1,19 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { cn } from '../lib/utils';
-import { useNavigate, useLocation } from "react-router-dom";
-import { 
-  Building2, Search, Bell, ShoppingCart, User, LayoutDashboard,
-  ShoppingBag, PlusCircle, ShieldCheck, LogOut,
-  Heart
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { clearSession, getBuyerSessionWithKey } from "../lib/session";
 
-import { MarketplaceHeader } from "../components/MarketplaceHeader";
-import { FeaturedEvents } from "../components/FeaturedEvents";
-
 import { UserCartTab } from "../components/UserCartTab";
 import { UserWishlistTab } from "../components/UserWishlistTab";
-import { EventCard } from "../components/EventCard";
-import MarketplaceUI from "../components/MarketplaceUI";
 import { UserSidebar } from "../components/shared/UserSidebar";
 import { UserEventsTab } from "../components/UserEventsTab";
 import { UserAnalyticsTab } from "../components/UserAnalyticsTab";
-
-
-function UserNavbar({ user, setActiveTab, cartCount = 0, wishlistCount = 0 }) {
-  return (
-    <nav className="h-20 bg-background/95 backdrop-blur-md border-b fixed top-0 left-0 right-0 z-40 px-6 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-          <span className="text-white font-black text-xl">S</span>
-        </div>
-        <div className="hidden md:flex flex-col cursor-pointer" onClick={() => setActiveTab('overview')}>
-           <span className="font-black text-primary leading-tight tracking-tight">SLIIT MARKETPLACE</span>
-           <span className="text-[10px] uppercase font-black text-secondary tracking-widest">Digital Campus</span>
-        </div>
-      </div>
-      
-      <div className="hidden md:flex relative max-w-md w-full mx-10">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input type="text" placeholder="Search items, events, users..." className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-muted/30 border-2 border-transparent focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all font-medium" />
-      </div>
-
-      <div className="flex items-center gap-6">
-        <button 
-          onClick={() => setActiveTab('cart')}
-          className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
-        >
-          <ShoppingCart size={20} />
-          {cartCount > 0 && (
-            <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-secondary text-white text-[10px] font-black flex items-center justify-center shadow-md">
-              {cartCount > 99 ? "99+" : cartCount}
-            </div>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('wishlist')}
-          className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
-        >
-          <Heart size={20} />
-          {wishlistCount > 0 && (
-            <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
-              {wishlistCount > 99 ? "99+" : wishlistCount}
-            </div>
-          )}
-        </button>
-        <button className="relative p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
-          <Bell size={20} />
-        </button>
-        
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-black text-primary tracking-tight leading-none mb-1">{user?.firstName || 'Student'}</p>
-            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{user?.faculty || 'Faculty'}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/20 hover:scale-110 transition-transform">
-             <User className="text-white" size={20} />
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-// UserSidebar is now imported from shared components
+import { UserNavbar } from "../components/UserNavbar";
+import { UserWelcomeHeader } from "../components/UserWelcomeHeader";
+import { UserProfileTab } from "../components/UserProfileTab";
+import { UserOverviewTab } from "../components/UserOverviewTab";
+import { UserMarketplaceTab } from "../components/UserMarketplaceTab";
 
 // -------------------------------------------------------------
 // MAIN USER DASHBOARD
@@ -92,6 +24,7 @@ export default function UserDasboardd() {
   const [activeTab, setActiveTab] = useState("overview");
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [me, setMe] = useState(null);
   
   // Aggressive Session Validation
   React.useEffect(() => {
@@ -114,6 +47,8 @@ export default function UserDasboardd() {
            if (!allowedRoles.has(userData.role)) {
               toast.error('Unauthorized access. Redirecting...');
               navigate('/');
+           } else {
+              setMe(userData);
            }
         }
       } catch (err) {
@@ -167,43 +102,33 @@ export default function UserDasboardd() {
     fetchCounts();
   }, [userInfo.token]);
 
+  const displayUser = me || userInfo;
+
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
-      <UserNavbar user={userInfo} setActiveTab={setActiveTab} cartCount={cartCount} wishlistCount={wishlistCount} />
+      <UserNavbar user={displayUser} setActiveTab={setActiveTab} cartCount={cartCount} wishlistCount={wishlistCount} />
       
       <div className="flex flex-1 min-w-0 pt-20">
         <UserSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         
         <main className="flex-1 min-w-0 lg:ml-64 p-4 md:p-8 lg:p-10 space-y-8 animate-in fade-in duration-700 overflow-x-hidden">
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 transition-all duration-500">
-              <div className="flex flex-col gap-2">
-                  <h1 className="text-4xl font-black text-primary tracking-tight">Welcome, {userInfo?.firstName || 'Student'}!</h1>
-                  <p className="text-muted-foreground font-medium text-lg">Manage your marketplace activity and campus life</p>
-              </div>
-          </div>
+          <UserWelcomeHeader user={displayUser} />
 
           {activeTab === 'marketplace' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <MarketplaceUI 
-                onWishlistChange={(count) => setWishlistCount(count)}
-                onCartChange={(count) => setCartCount(count)}
-              />
-            </div>
+            <UserMarketplaceTab
+              onWishlistChange={(count) => setWishlistCount(count)}
+              onCartChange={(count) => setCartCount(count)}
+            />
           )}
           {activeTab === 'cart' && <UserCartTab />}
 
           {activeTab === 'overview' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <MarketplaceHeader onSearch={() => {}} />
-              {loadingEvents ? (
-                <div className="flex justify-center py-10">
-                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <FeaturedEvents events={events} onViewAll={() => setActiveTab('events')} />
-              )}
-            </div>
+            <UserOverviewTab
+              events={events}
+              loadingEvents={loadingEvents}
+              onViewAllEvents={() => setActiveTab("events")}
+            />
           )}
 
 
@@ -211,15 +136,7 @@ export default function UserDasboardd() {
           {activeTab === 'events' && <UserEventsTab />}
           
           {activeTab === 'profile' && (
-            <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-muted/20 rounded-[3rem] border-2 border-dashed border-muted">
-               <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center text-primary">
-                  <User size={40} />
-               </div>
-               <div>
-                  <h3 className="text-xl font-bold text-primary">Profile Settings</h3>
-                  <p className="text-muted-foreground">Manage your university faculty and contact details here.</p>
-               </div>
-            </div>
+            <UserProfileTab user={displayUser} onUserUpdated={setMe} />
           )}
 
           {activeTab === 'wishlist' && (

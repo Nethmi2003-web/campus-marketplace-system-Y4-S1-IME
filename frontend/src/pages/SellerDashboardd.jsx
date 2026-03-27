@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Package,
   Receipt,
+  FileText,
   ShoppingBag,
   PlusCircle,
   Settings,
@@ -16,12 +17,16 @@ import {
   Edit3,
   Save,
   Trash2,
+  AlertTriangle,
   X
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { clearSession, getSellerSessionWithKey } from "../lib/session";
 import { SellerAnalytic } from "../components/SellerAnalytic";
 import { PaginationControls } from "../components/shared/PaginationControls";
+import { SellerNameBadge } from "../components/SellerNameBadge";
+import { SellerReportsTab } from "../components/SellerReportsTab";
+import { SellerSettingsTab } from "../components/SellerSettingsTab";
 
 function SellerNavbar({ user }) {
   return (
@@ -32,27 +37,18 @@ function SellerNavbar({ user }) {
           Seller<span className="text-secondary">Hub</span>
         </h2>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-foreground">{user?.firstName || "Seller"}</p>
-            <p className="text-[10px] text-secondary font-black uppercase tracking-widest">Store Owner</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold">{user?.firstName?.charAt(0) || "S"}</span>
-          </div>
-        </div>
-      </div>
+      <SellerNameBadge user={user} />
     </nav>
   );
 }
 
-function SellerSidebar({ activeTab, setActiveTab, onLogout }) {
+function SellerSidebar({ activeTab, setActiveTab, onLogout, onReportProblem = () => {} }) {
   const navigate = useNavigate();
   const tabs = [
     { id: "overview", label: "Store Overview", icon: LayoutDashboard },
     { id: "listings", label: "My Listings", icon: Package },
     { id: "transactions", label: "Transactions", icon: Receipt },
+    { id: "reports", label: "Reports", icon: FileText },
     { id: "create", label: "Create Listing", icon: PlusCircle },
     { id: "settings", label: "Store Settings", icon: Settings }
   ];
@@ -91,7 +87,14 @@ function SellerSidebar({ activeTab, setActiveTab, onLogout }) {
         </button>
       </div>
 
-      <div className="mt-auto p-4 border-t border-white/10">
+      <div className="mt-auto p-4 border-t border-white/10 space-y-2">
+        <button
+          onClick={onReportProblem}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 bg-white/5 hover:bg-red-500/20 hover:text-red-200 transition-all font-black"
+          title="Report a problem"
+        >
+          <AlertTriangle size={18} /> Report Problem
+        </button>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-all font-bold"
@@ -114,6 +117,7 @@ export default function SellerDashboardd() {
   const [searchQuery, setSearchQuery] = useState("");
   const [listingsPage, setListingsPage] = useState(1);
   const listingsPageSize = 10;
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({ price: "", stockQuantity: "", status: "available" });
@@ -225,6 +229,15 @@ export default function SellerDashboardd() {
     navigate("/");
   };
 
+  const openReportProblem = () => {
+    setActiveTab("reports");
+    setReportModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (activeTab !== "reports" && reportModalOpen) setReportModalOpen(false);
+  }, [activeTab, reportModalOpen]);
+
   const startEdit = (item) => {
     setEditingId(item._id);
     setEditDraft({
@@ -321,7 +334,12 @@ export default function SellerDashboardd() {
       <SellerNavbar user={me || userInfo} />
 
       <div className="flex flex-1 min-w-0 pt-20">
-        <SellerSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+        <SellerSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={handleLogout}
+          onReportProblem={openReportProblem}
+        />
 
         <main className="flex-1 min-w-0 lg:ml-64 p-4 md:p-8 lg:p-10 space-y-8 animate-in fade-in duration-700 overflow-x-hidden">
           {/* OVERVIEW */}
@@ -570,6 +588,15 @@ export default function SellerDashboardd() {
           {/* TRANSACTIONS */}
           {activeTab === "transactions" && <SellerAnalytic />}
 
+          {/* REPORTS */}
+          {activeTab === "reports" && (
+            <SellerReportsTab
+              reportModalOpen={reportModalOpen}
+              setReportModalOpen={setReportModalOpen}
+              onGoToListings={() => setActiveTab("listings")}
+            />
+          )}
+
           {/* CREATE */}
           {activeTab === "create" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -696,15 +723,7 @@ export default function SellerDashboardd() {
           )}
 
           {/* SETTINGS */}
-          {activeTab === "settings" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h1 className="text-3xl font-black text-primary">Store Settings</h1>
-              <p className="text-muted-foreground font-medium">Seller settings panel coming soon.</p>
-              <div className="rounded-2xl border bg-card shadow-xl p-6">
-                <p className="text-muted-foreground text-center py-16">Settings panel coming soon.</p>
-              </div>
-            </div>
-          )}
+          {activeTab === "settings" && <SellerSettingsTab user={me} onUserUpdated={setMe} />}
         </main>
       </div>
     </div>
