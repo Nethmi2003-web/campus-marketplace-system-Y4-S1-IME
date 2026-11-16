@@ -1,11 +1,18 @@
 {
+<<<<<<< HEAD
   "name": "campus-marketplace-frontend",
   "version": "1.0.0",
   "description": "Frontend for UNI SWAP Campus MarketPlace – React + Vite",
+=======
+  "name": "usermanagement",
+  "private": true,
+  "version": "0.0.0",
+>>>>>>> 3d2456c8463d5f96f9bd9eb1f5c0ee785798c417
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+<<<<<<< HEAD
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/data/site.ts src/data/strategy.ts src/data/financials.ts src/data/pricing.ts src/hooks/useTheme.ts src/hooks/usePageMeta.ts src/lib/campusCartCalculators.ts src/components/brand src/components/ui/MarketingUI.tsx src/pages/marketing && prettier --check src/data/*.ts src/hooks/*.ts src/lib/*.ts src/components/brand/*.tsx src/components/ui/MarketingUI.tsx src/pages/marketing/*.tsx src/styles/marketing.css",
@@ -74,5 +81,28 @@
   },
   "overrides": {
     "picomatch": "4.0.4"
+=======
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
+    "motion": "^12.38.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "vite": "^8.0.1"
+>>>>>>> 3d2456c8463d5f96f9bd9eb1f5c0ee785798c417
   }
 }

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <h1 align="center">
   🎓 UNI SWAP Campus MarketPlace
 </h1>
@@ -415,3 +416,21 @@ Edit site copy and market information in `frontend/src/data/site.ts`, pricing in
 ### Static deployment
 
 The public site is a Vite static build. In Vercel or Netlify, set the project root to `frontend`, the build command to `npm run build`, and the output directory to `dist`. Configure a single-page-app rewrite to `/index.html` so direct visits and refreshes on routes such as `/financials` resolve to the React app. Marketing sign-up and contact forms are client-side demonstrations: submissions are held in memory for the current page session and are not sent to a service.
+=======
+# React + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+>>>>>>> 3d2456c8463d5f96f9bd9eb1f5c0ee785798c417
