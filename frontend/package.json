@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/data/site.ts src/data/strategy.ts src/data/financials.ts src/data/pricing.ts src/hooks/useTheme.ts src/hooks/usePageMeta.ts src/lib/campusCartCalculators.ts src/components/brand src/components/ui/MarketingUI.tsx src/pages/marketing && prettier --check src/data/*.ts src/hooks/*.ts src/lib/*.ts src/components/brand/*.tsx src/components/ui/MarketingUI.tsx src/pages/marketing/*.tsx src/styles/marketing.css",
+    "format": "prettier --write src/data/*.ts src/hooks/*.ts src/lib/*.ts src/components/brand/*.tsx src/components/ui/MarketingUI.tsx src/pages/marketing/*.tsx src/styles/marketing.css",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -38,6 +42,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
+    "framer-motion": "^14.14.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "next-themes": "^0.4.6",
@@ -57,9 +62,15 @@
     "@tailwindcss/vite": "4.0.9",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.72.2",
+    "@typescript-eslint/parser": "^8.72.2",
     "@vitejs/plugin-react": "4.3.4",
+    "eslint": "^10.15.0",
+    "prettier": "^3.10.1",
     "tailwindcss": "4.0.9",
-    "vite": "^6.4.1"
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "picomatch": "4.0.4"

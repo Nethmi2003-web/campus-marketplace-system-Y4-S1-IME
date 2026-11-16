@@ -1,35 +1,8 @@
-const Event = require('../models/Event');
+const { createRecord, listRecords } = require('../../config/database');
 
-// @desc    Create new event
-// @route   POST /api/events
-// @access  Private/Admin
 const createEvent = async (req, res) => {
   try {
-    const { 
-      name, 
-      faculty, 
-      date, 
-      time, 
-      venue, 
-      organizedTeam, 
-      category, 
-      description,
-      status 
-    } = req.body;
-
-    // Check if image was uploaded
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload an image' });
-    }
-
-    // Access Cloudinary URL from the multer file object (different versions use different keys)
-    const imageUrl = req.file.secure_url || req.file.url || req.file.path;
-
-    if (!imageUrl) {
-      return res.status(400).json({ success: false, message: 'Image upload failed, no URL returned.' });
-    }
-
-    const event = new Event({
+    const {
       name,
       faculty,
       date,
@@ -38,30 +11,53 @@ const createEvent = async (req, res) => {
       organizedTeam,
       category,
       description,
+      status
+    } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload an image' });
+    }
+
+    const imageUrl = req.file.secure_url || req.file.url || req.file.path;
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, message: 'Image upload failed, no URL returned.' });
+    }
+    if (!name || !faculty || !date || !venue || !organizedTeam) {
+      return res.status(400).json({ success: false, message: 'Please provide all required event fields' });
+    }
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid event date' });
+    }
+    const eventStatus = status || 'Upcoming';
+    if (!['Upcoming', 'Ongoing', 'Completed', 'Cancelled'].includes(eventStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid event status' });
+    }
+
+    const event = await createRecord('events', {
+      name,
+      faculty,
+      date: parsedDate.toISOString(),
+      time: time || '',
+      venue,
+      organizedTeam,
+      category: category || 'General',
+      description: description || '',
       imageUrl,
-      status: status || 'Upcoming'
+      status: eventStatus
     });
 
-    const createdEvent = await event.save();
-
-    res.status(201).json({
-      success: true,
-      data: createdEvent
-    });
-
+    res.status(201).json({ success: true, data: event });
   } catch (error) {
     console.error(`Error in createEvent: ${error.message}`);
     res.status(500).json({ success: false, message: 'Server error while creating event' });
   }
 };
 
-// @desc    Get all events
-// @route   GET /api/events
-// @access  Public
 const getEvents = async (req, res) => {
   try {
-    // You can add filtering here later (e.g., by category or upcoming dates)
-    const events = await Event.find({}).sort({ date: 1 });
+    const events = (await listRecords('events'))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
     res.status(200).json({ success: true, data: events });
   } catch (error) {
     console.error(`Error in getEvents: ${error.message}`);
@@ -69,7 +65,4 @@ const getEvents = async (req, res) => {
   }
 };
 
-module.exports = {
-  createEvent,
-  getEvents
-};
+module.exports = { createEvent, getEvents };

@@ -1,167 +1,176 @@
 const asyncHandler = require('express-async-handler');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-// Handle both CommonJS and ES Module default exports gracefully just in case User.js is transpiled or native ESM
-const UserModel = require('../models/User');
-const User = UserModel.default || UserModel;
-const SellerRequest = require('../models/SellerRequest');
+const {
+  createRecord,
+  findRecordByField,
+  getRecord,
+  listRecords,
+  updateRecord
+} = require('../../config/database');
 
-// Generate standard JWT token without aggressive concurrent tracking
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+const publicUser = (user) => {
+  if (!user) return null;
+  const { passwordHash, password, ...safeUser } = user;
+  return safeUser;
+};
 
-// @desc  Register new user
-// @route POST /api/users/register
-// @access Public
+const generateToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured.');
+  }
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+  });
+};
+
+const latestSellerRequest = async (userId) => {
+  const requests = (await listRecords('sellerRequests'))
+    .filter((request) => request.user === userId)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return requests[0] || null;
+};
+
 const registerUser = asyncHandler(async (req, res) => {
-  const { firstName, lastName, faculty, universityEmail, password, confirmPassword, role } = req.body;
+  const {
+    firstName,
+    lastName,
+    faculty,
+    universityEmail,
+    password,
+    confirmPassword,
+    role
+  } = req.body;
 
   if (!firstName || !lastName || !faculty || !universityEmail || !password || !confirmPassword) {
     res.status(400);
     throw new Error('Please provide all required fields');
   }
-
   if (password !== confirmPassword) {
     res.status(400);
     throw new Error('Passwords do not match');
   }
+  if (String(password).length < 6) {
+    res.status(400);
+    throw new Error('Password must be at least 6 characters');
+  }
 
-  const userExists = await User.findOne({ universityEmail });
-  if (userExists) {
+  const normalizedEmail = String(universityEmail).trim().toLowerCase();
+  if (!/.+@(my\.sliit\.lk|sliit\.lk|.*\.ac\.lk|.*\.edu)$/.test(normalizedEmail)) {
+    res.status(400);
+    throw new Error('Please use a valid university email address');
+  }
+  if (await findRecordByField('users', 'universityEmail', normalizedEmail)) {
     res.status(400);
     throw new Error('User already exists with this university email');
   }
 
-  // Public registration should never be able to create privileged roles.
   const requestedRole = String(role || 'user').trim().toLowerCase();
-  const allowedRoles = new Set(['user', 'seller']);
-  if (!allowedRoles.has(requestedRole)) {
+  if (!['user', 'seller'].includes(requestedRole)) {
     res.status(400);
     throw new Error('Invalid role');
   }
 
-  // Sellers require admin approval; create as a normal user first and file a request.
-  const createRole = requestedRole === 'seller' ? 'user' : requestedRole;
-
-  // Pass confirmPassword to satisfy Mongoose virtual validation hook
-  const user = await User.create({ 
-    firstName, 
-    lastName, 
-    faculty, 
-    universityEmail, 
-    password, 
-    confirmPassword,
-    role: createRole
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await createRecord('users', {
+    firstName: String(firstName).trim(),
+    lastName: String(lastName).trim(),
+    faculty: String(faculty).trim(),
+    universityEmail: normalizedEmail,
+    passwordHash,
+    role: 'user',
+    sessionVersion: 0
   });
 
   let sellerRequest = null;
   if (requestedRole === 'seller') {
-    sellerRequest = await SellerRequest.create({ user: user._id });
+    sellerRequest = await createRecord('sellerRequests', {
+      user: user._id,
+      status: 'pending'
+    });
   }
 
   res.status(201).json({
-    _id: user._id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    universityEmail: user.universityEmail,
-    role: user.role,
+    ...publicUser(user),
     sellerRequest: sellerRequest
-      ? { _id: sellerRequest._id, status: sellerRequest.status, createdAt: sellerRequest.createdAt }
+      ? {
+          _id: sellerRequest._id,
+          status: sellerRequest.status,
+          createdAt: sellerRequest.createdAt
+        }
       : null,
-    token: generateToken(user._id),
+    token: generateToken(user._id)
   });
 });
 
-// @desc  Login user
-// @route POST /api/users/login
-// @access Public
 const loginUser = asyncHandler(async (req, res) => {
-  // Mapping the frontend 'email' input payload to 'universityEmail' for the DB check
-  const { email, password } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const { password } = req.body;
+  const user = await findRecordByField('users', 'universityEmail', email);
 
-  const user = await User.findOne({ universityEmail: email });
-
-  if (user && (await user.matchPassword(password))) {
-    const latestSellerRequest = await SellerRequest.findOne({ user: user._id })
-      .sort('-createdAt')
-      .select('_id status createdAt decidedAt rejectionReason');
-    res.json({
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      universityEmail: user.universityEmail,
-      role: user.role,
-      sellerRequest: latestSellerRequest
-        ? {
-            _id: latestSellerRequest._id,
-            status: latestSellerRequest.status,
-            createdAt: latestSellerRequest.createdAt,
-            decidedAt: latestSellerRequest.decidedAt,
-            rejectionReason: latestSellerRequest.rejectionReason
-          }
-        : null,
-      token: generateToken(user._id),
-    });
-  } else {
+  if (!user || !(await bcrypt.compare(String(password || ''), user.passwordHash || ''))) {
     res.status(401);
     throw new Error('Invalid email or password');
   }
-});
 
-// @desc  Get current user's latest seller request (if any)
-// @route GET /api/users/seller-request
-// @access Private
-const getMySellerRequest = asyncHandler(async (req, res) => {
-  const latest = await SellerRequest.findOne({ user: req.user._id })
-    .sort("-createdAt")
-    .select("_id status createdAt decidedAt rejectionReason decidedBy")
-    .populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
-
-  res.status(200).json({ success: true, data: latest || null });
-});
-
-// @desc  Get logged-in user profile
-// @route GET /api/users/me
-// @access Private
-const getUserProfile = asyncHandler(async (req, res) => {
-  res.json(req.user);
-});
-
-// @desc  Update user profile
-// @route PUT /api/users/me
-// @access Private
-const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (!user) { res.status(404); throw new Error('User not found'); }
-
-  user.firstName = req.body.firstName || user.firstName;
-  user.lastName = req.body.lastName || user.lastName;
-  user.phone = req.body.phone || user.phone;
-  user.bio = req.body.bio || user.bio;
-  
-  if (req.body.password) {
-    user.password = req.body.password;
-    if (req.body.confirmPassword) {
-      user.confirmPassword = req.body.confirmPassword;
-    } else {
-      user.confirmPassword = req.body.password; // automatically bypass confirm on backend patch
-    }
-  }
-
-  const updated = await user.save();
-  res.json({ 
-    _id: updated._id, 
-    firstName: updated.firstName, 
-    lastName: updated.lastName, 
-    universityEmail: updated.universityEmail, 
-    role: updated.role 
+  const request = await latestSellerRequest(user._id);
+  res.json({
+    ...publicUser(user),
+    sellerRequest: request
+      ? {
+          _id: request._id,
+          status: request.status,
+          createdAt: request.createdAt,
+          decidedAt: request.decidedAt,
+          rejectionReason: request.rejectionReason
+        }
+      : null,
+    token: generateToken(user._id)
   });
 });
 
-// @desc  Get all users (admin)
-// @route GET /api/users
-// @access Private/Admin
+const getMySellerRequest = asyncHandler(async (req, res) => {
+  const request = await latestSellerRequest(req.user._id);
+  if (request) {
+    request.decidedBy = request.decidedBy
+      ? publicUser(await getRecord('users', request.decidedBy))
+      : null;
+  }
+  res.status(200).json({ success: true, data: request });
+});
+
+const getUserProfile = asyncHandler(async (req, res) => {
+  res.json(publicUser(req.user));
+});
+
+const updateUserProfile = asyncHandler(async (req, res) => {
+  const updates = {};
+  for (const field of ['firstName', 'lastName', 'phone', 'bio']) {
+    if (req.body[field] !== undefined) updates[field] = req.body[field];
+  }
+
+  if (req.body.password) {
+    if (String(req.body.password).length < 6) {
+      res.status(400);
+      throw new Error('Password must be at least 6 characters');
+    }
+    if (req.body.confirmPassword && req.body.password !== req.body.confirmPassword) {
+      res.status(400);
+      throw new Error('Passwords do not match');
+    }
+    updates.passwordHash = await bcrypt.hash(req.body.password, 10);
+  }
+
+  const updated = await updateRecord('users', req.user._id, updates);
+  if (!updated) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+  res.json(publicUser(updated));
+});
+
 const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select('-password');
+  const users = (await listRecords('users')).map(publicUser);
   res.json(users);
 });
 

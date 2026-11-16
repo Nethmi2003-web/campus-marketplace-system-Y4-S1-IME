@@ -1,0 +1,15 @@
+export const pricing = {
+  deliveryFeeMin: 492,
+  deliveryFeeMax: 984,
+  premiumMonthly: 1636,
+  referralCredit: 1640,
+  launchFreeOrders: 5,
+  vendorCommissionMin: 8,
+  vendorCommissionMax: 12,
+  calculatorPlatformFeeRate: 0.05,
+  vendorPromotionMonthly: 15000,
+  eventPromotion: 50000,
+  comparisonAppFeeRate: 0.3,
+  calculatorExampleOrdersPerWeek: 3,
+  calculatorExampleBasketValue: 1200,
+};

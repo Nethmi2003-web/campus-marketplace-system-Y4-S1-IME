@@ -1,35 +1,35 @@
 const asyncHandler = require('express-async-handler');
-const Settings = require('../models/Settings');
+const { database } = require('../../config/database');
 
-// @desc    Get global platform settings
-// @route   GET /api/settings
-// @access  Private/Admin
+const settingsRef = database.ref('settings/platform');
+
 exports.getSettings = asyncHandler(async (req, res) => {
-  const settings = await Settings.findOne() || await Settings.create({ platformFee: 5 });
-  
-  res.status(200).json({
-    success: true,
-    data: settings
-  });
-});
-
-// @desc    Update global platform settings
-// @route   PUT /api/settings
-// @access  Private/Admin
-exports.updateSettings = asyncHandler(async (req, res) => {
-  let settings = await Settings.findOne();
-  
+  const snapshot = await settingsRef.get();
+  let settings = snapshot.val();
   if (!settings) {
-    settings = await Settings.create(req.body);
-  } else {
-    settings = await Settings.findOneAndUpdate({}, req.body, {
-      new: true,
-      runValidators: true
-    });
+    settings = {
+      platformFee: 5,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await settingsRef.set(settings);
   }
 
-  res.status(200).json({
-    success: true,
-    data: settings
-  });
+  res.status(200).json({ success: true, data: { ...settings, _id: 'platform' } });
+});
+
+exports.updateSettings = asyncHandler(async (req, res) => {
+  const platformFee = Number(req.body.platformFee);
+  if (!Number.isFinite(platformFee) || platformFee < 0 || platformFee > 100) {
+    res.status(400);
+    throw new Error('Platform fee must be a number between 0 and 100');
+  }
+
+  const ref = settingsRef;
+  const result = await ref.transaction((current) => ({
+    ...(current || { createdAt: new Date().toISOString() }),
+    platformFee,
+    updatedAt: new Date().toISOString()
+  }));
+  res.status(200).json({ success: true, data: { ...result.snapshot.val(), _id: 'platform' } });
 });

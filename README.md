@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase_Realtime_Database-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
   <img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" />
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
@@ -126,7 +126,8 @@ campus-marketplace-system/
 |-------|------------|
 | **Frontend** | React.js, Axios, React Router DOM, CSS3 |
 | **Backend** | Node.js, Express.js |
-| **Database** | MongoDB Atlas (Mongoose ODM) |
+| **Database** | Firebase Realtime Database (Firebase Admin SDK) |
+| **Hosting** | Firebase Hosting + Cloud Functions |
 | **Authentication** | JSON Web Tokens (JWT), bcrypt.js |
 | **File Uploads** | Multer, Cloudinary |
 | **AI / ML** | Sentiment Analysis API / Custom NLP Model |
@@ -142,7 +143,7 @@ campus-marketplace-system/
 │
 ├── backend/
 │   ├── config/
-│   │   └── db.js                   # MongoDB connection
+│   │   └── database.js             # Firebase Realtime Database access
 │   ├── middleware/
 │   │   ├── authMiddleware.js        # JWT verification
 │   │   └── errorHandler.js
@@ -198,7 +199,9 @@ Make sure you have the following installed:
 
 - [Node.js](https://nodejs.org/) (v18+)
 - [npm](https://www.npmjs.com/) (v9+)
-- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) account
+- [Firebase CLI](https://firebase.google.com/docs/cli) (`npm install -g firebase-tools`)
+- Java JDK 11+ (required by the local Firebase Realtime Database emulator)
+- A Firebase project with Realtime Database enabled
 
 ### 1. Clone the Repository
 
@@ -207,64 +210,90 @@ git clone https://github.com/Nethmi2003-web/campus-marketplace-system.git
 cd campus-marketplace-system
 ```
 
-### 2. Set Up the Backend
+### 2. Create and Configure Firebase
+
+The repository is configured to target Firebase project `uni-swap-9d541` (Uni-Swap). You must sign in with a Google account that is authorized on that project. If it belongs to another team member, ask its owner to add your account in Firebase Console → Project settings → Users and permissions; project name/ID alone do not grant access. If you do not have permission, create a project in your own account and update `.firebaserc` to its project ID instead.
+
+In the Firebase Console, confirm that **Realtime Database** is enabled, then copy its database URL from the Realtime Database page. Do not guess the URL from the project ID. The database starts empty; this setup does not copy data or credentials from another project.
+
+Firebase Functions deployment requires a billing-enabled Firebase project (Blaze plan). From the repository root, sign in and verify the configured target:
 
 ```bash
-cd backend
-npm install
+firebase login
+firebase use
 ```
 
-Create a `.env` file in the `backend/` directory (see [Environment Variables](#-environment-variables) below), then start the server:
+The expected active project is `uni-swap-9d541`. The deployed API uses the Firebase Admin SDK; the supplied Realtime Database rules deny direct client reads and writes.
+
+### 3. Run Locally
+
+Install dependencies from the repository root:
 
 ```bash
-npm run dev
+npm --prefix backend install
+npm --prefix frontend install
 ```
 
-The backend API will be running at `http://localhost:5000`.
-
-### 3. Set Up the Frontend
-
-Open a new terminal tab/window:
+Copy `backend/.env.example` to `backend/.env` and set `FIREBASE_DATABASE_URL` and a long random `JWT_SECRET`. Keep these values private. For local development against the Realtime Database emulator, start it from the repository root:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+firebase emulators:start --only database
 ```
 
-The frontend will be running at `http://localhost:5173`.
+In another terminal, set `FIREBASE_DATABASE_EMULATOR_HOST=127.0.0.1:9000` and `GCLOUD_PROJECT=demo-campus-marketplace`, then start the backend:
+
+```bash
+npm --prefix backend run dev
+```
+
+In a third terminal, start the frontend:
+
+```bash
+npm --prefix frontend run dev
+```
+
+The frontend is at `http://localhost:5173`; its `/api` requests are proxied to the backend on port `5001`.
+
+### 4. Deploy to Firebase
+
+The Functions code needs the database URL as a project parameter. Create `backend/.env.<project-id>` (replace `<project-id>` with the exact ID shown in Firebase Console) with only this setting:
+
+```env
+FIREBASE_DATABASE_URL=https://YOUR_DATABASE_URL_FROM_FIREBASE_CONSOLE
+```
+
+This project-specific environment file is git-ignored. Do not put passwords, API keys, or service-account credentials in it. Set the JWT signing key and Cloudinary upload credentials as Functions secrets. Use values from accounts you control; Cloudinary is required by the existing image and payment-slip upload routes.
+
+```bash
+firebase functions:secrets:set JWT_SECRET
+firebase functions:secrets:set CLOUDINARY_CLOUD_NAME
+firebase functions:secrets:set CLOUDINARY_API_KEY
+firebase functions:secrets:set CLOUDINARY_API_SECRET
+firebase deploy --only database,functions,hosting
+```
+
+Enter a long, unique JWT secret when prompted. Firebase Hosting builds and serves the React app and rewrites `/api/**` to the Express API Cloud Function. The new Realtime Database starts empty; existing records are not migrated. Import data only from an authorized export, separately.
 
 ---
 
 ## 🔐 Environment Variables
 
-Create a `.env` file inside the `backend/` directory with the following variables:
+Copy `backend/.env.example` to `backend/.env` for local development:
 
 ```env
-# Server
-PORT=5000
-NODE_ENV=development
-
-# Database
-MONGO_URI=your_mongodb_atlas_connection_string
-
-# Authentication
-JWT_SECRET=your_super_secret_jwt_key
+# Local API server
+PORT=5001
+FIREBASE_DATABASE_URL=https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com
+JWT_SECRET=use-a-long-random-secret
 JWT_EXPIRES_IN=7d
 
-# Cloudinary (Image Uploads)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Email (University Email Verification)
-EMAIL_HOST=smtp.example.com
-EMAIL_PORT=587
-EMAIL_USER=your_email@university.ac.lk
-EMAIL_PASS=your_email_password
+# Optional: required for image and payment-slip uploads
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 ```
 
-> ⚠️ **Never commit your `.env` file to version control.** It is already listed in `.gitignore`.
+> Never commit `.env` files, service-account keys, or other credentials. Firebase Functions uses the `JWT_SECRET` secret configured during deployment. Cloudinary credentials are still required for the existing image and payment-slip upload routes.
 
 ---
 
@@ -348,3 +377,41 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 <p align="center">
    UNI SWAP Campus MarketPlace Team | SLIIT – ITPM 2026
 </p>
+
+---
+
+## CampusCart public site
+
+The frontend also includes the UniSwap – Campus Cart public business-plan showcase. The marketing site is the `/` route; existing marketplace sign-in, registration, item listings and role dashboards remain available at their existing routes.
+
+### Frontend setup and checks
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev
+npm --prefix frontend run typecheck
+npm --prefix frontend run lint
+npm --prefix frontend test
+npm --prefix frontend run build
+npm --prefix frontend run format
+```
+
+### CampusCart folder map
+
+```text
+frontend/src/
+├── components/
+│   ├── brand/       # Logo, shared marketing layout, navigation and footer
+│   └── ui/          # Reusable cards, sections, tabs, forms, tables and accordion
+├── data/            # Typed brand, market, strategy, pricing and plan data
+├── hooks/           # Theme and page metadata
+├── lib/             # Currency, savings and loan calculators
+├── pages/marketing/ # Lazy-loaded public site pages
+└── styles/          # CampusCart design tokens and responsive styles
+```
+
+Edit site copy and market information in `frontend/src/data/site.ts`, pricing in `frontend/src/data/pricing.ts`, and plan values in `frontend/src/data/financials.ts`. Keep financial discrepancies visible and documented in [`DATA_NOTES.md`](./DATA_NOTES.md); avoid recalculating or silently reconciling source figures.
+
+### Static deployment
+
+The public site is a Vite static build. In Vercel or Netlify, set the project root to `frontend`, the build command to `npm run build`, and the output directory to `dist`. Configure a single-page-app rewrite to `/index.html` so direct visits and refreshes on routes such as `/financials` resolve to the React app. Marketing sign-up and contact forms are client-side demonstrations: submissions are held in memory for the current page session and are not sent to a service.

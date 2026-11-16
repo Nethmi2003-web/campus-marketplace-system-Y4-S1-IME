@@ -1,99 +1,96 @@
-const asyncHandler = require("express-async-handler");
-const SellerRequest = require("../models/SellerRequest");
-const UserModel = require("../models/User");
-const User = UserModel.default || UserModel;
+const asyncHandler = require('express-async-handler');
+const {
+  getRecord,
+  listRecords,
+  updateRecord
+} = require('../../config/database');
 
-// @desc    List seller registration requests
-// @route   GET /api/admin/seller-requests?status=pending|approved|rejected|all
-// @access  Private/Admin
+const publicUser = (user) => {
+  if (!user) return null;
+  const { passwordHash, password, ...safeUser } = user;
+  return safeUser;
+};
+
+const populateRequest = async (request) => {
+  if (!request) return null;
+  const [user, decidedBy] = await Promise.all([
+    getRecord('users', request.user),
+    request.decidedBy ? getRecord('users', request.decidedBy) : null
+  ]);
+  return {
+    ...request,
+    user: publicUser(user),
+    decidedBy: publicUser(decidedBy)
+  };
+};
+
 const listSellerRequests = asyncHandler(async (req, res) => {
-  const status = String(req.query.status || "pending").toLowerCase();
-  const query = {};
-  if (status && status !== "all") query.status = status;
+  const status = String(req.query.status || 'pending').toLowerCase();
+  const requests = (await listRecords('sellerRequests'))
+    .filter((request) => status === 'all' || request.status === status)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
-  const requests = await SellerRequest.find(query)
-    .sort("-createdAt")
-    .populate({ path: "user", select: "firstName lastName faculty universityEmail phone role createdAt" })
-    .populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
-
-  res.status(200).json({ success: true, data: requests });
+  res.status(200).json({
+    success: true,
+    data: await Promise.all(requests.map(populateRequest))
+  });
 });
 
-// @desc    Get a single seller request
-// @route   GET /api/admin/seller-requests/:id
-// @access  Private/Admin
 const getSellerRequest = asyncHandler(async (req, res) => {
-  const request = await SellerRequest.findById(req.params.id)
-    .populate({ path: "user", select: "firstName lastName faculty universityEmail phone role createdAt" })
-    .populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
-
+  const request = await getRecord('sellerRequests', req.params.id);
   if (!request) {
     res.status(404);
-    throw new Error("Seller request not found");
+    throw new Error('Seller request not found');
   }
-
-  res.status(200).json({ success: true, data: request });
+  res.status(200).json({ success: true, data: await populateRequest(request) });
 });
 
-// @desc    Approve seller request (promote user to seller)
-// @route   PUT /api/admin/seller-requests/:id/approve
-// @access  Private/Admin
 const approveSellerRequest = asyncHandler(async (req, res) => {
-  const request = await SellerRequest.findById(req.params.id);
+  const request = await getRecord('sellerRequests', req.params.id);
   if (!request) {
     res.status(404);
-    throw new Error("Seller request not found");
+    throw new Error('Seller request not found');
   }
-  if (request.status !== "pending") {
+  if (request.status !== 'pending') {
     res.status(400);
-    throw new Error("This request is already processed");
+    throw new Error('This request is already processed');
   }
 
-  const user = await User.findById(request.user);
+  const user = await updateRecord('users', request.user, { role: 'seller' });
   if (!user) {
     res.status(404);
-    throw new Error("User not found for this request");
+    throw new Error('User not found for this request');
   }
 
-  user.role = "seller";
-  await user.save();
+  const updated = await updateRecord('sellerRequests', request._id, {
+    status: 'approved',
+    decidedAt: new Date().toISOString(),
+    decidedBy: req.user._id,
+    rejectionReason: null
+  });
 
-  request.status = "approved";
-  request.decidedAt = new Date();
-  request.decidedBy = req.user?._id;
-  request.rejectionReason = undefined;
-  await request.save();
-
-  await request.populate({ path: "user", select: "firstName lastName faculty universityEmail phone role createdAt" });
-  await request.populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
-
-  res.status(200).json({ success: true, data: request });
+  res.status(200).json({ success: true, data: await populateRequest(updated) });
 });
 
-// @desc    Reject seller request
-// @route   PUT /api/admin/seller-requests/:id/reject
-// @access  Private/Admin
 const rejectSellerRequest = asyncHandler(async (req, res) => {
-  const request = await SellerRequest.findById(req.params.id);
+  const request = await getRecord('sellerRequests', req.params.id);
   if (!request) {
     res.status(404);
-    throw new Error("Seller request not found");
+    throw new Error('Seller request not found');
   }
-  if (request.status !== "pending") {
+  if (request.status !== 'pending') {
     res.status(400);
-    throw new Error("This request is already processed");
+    throw new Error('This request is already processed');
   }
 
-  request.status = "rejected";
-  request.decidedAt = new Date();
-  request.decidedBy = req.user?._id;
-  request.rejectionReason = String(req.body?.reason || "").trim() || undefined;
-  await request.save();
+  const updated = await updateRecord('sellerRequests', request._id, {
+    status: 'rejected',
+    decidedAt: new Date().toISOString(),
+    decidedBy: req.user._id,
+    rejectionReason: String(req.body.reason || '').trim() || null
+  });
 
-  await request.populate({ path: "user", select: "firstName lastName faculty universityEmail phone role createdAt" });
-  await request.populate({ path: "decidedBy", select: "firstName lastName universityEmail role" });
-
-  res.status(200).json({ success: true, data: request });
+  res.status(200).json({ success: true, data: await populateRequest(updated) });
 });
 
 module.exports = {
@@ -102,4 +99,3 @@ module.exports = {
   approveSellerRequest,
   rejectSellerRequest
 };
-

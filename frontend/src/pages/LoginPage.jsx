@@ -5,6 +5,7 @@ import { ShieldCheck } from "lucide-react";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/shared/UI";
 import { setSessionForRole } from "../lib/session";
 import { toast } from "react-toastify";
+import { API_BASE } from "../services/api";
 
 // UI Components removed, now using shared UI library from ../components/shared/UI
 
@@ -21,7 +22,7 @@ function LoginPage() {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5001/api/users/login", {
+      const res = await fetch(`${API_BASE}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)

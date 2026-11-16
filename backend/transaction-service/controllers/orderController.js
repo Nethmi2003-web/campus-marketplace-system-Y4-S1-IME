@@ -1,184 +1,224 @@
-const Order = require('../models/Order');
-const Cart = require('../models/Cart');
-const Item = require('../../item-management/models/Item');
-const Settings = require('../../item-management/models/Settings');
+const {
+  createRecord,
+  database,
+  deleteRecord,
+  getRecord,
+  listRecords,
+  updateRecord
+} = require('../../config/database');
 
+const publicUser = (user, fields = ['firstName', 'lastName', 'universityEmail']) => {
+  if (!user) return null;
+  return Object.fromEntries([
+    ['_id', user._id],
+    ...fields.filter((field) => user[field] !== undefined).map((field) => [field, user[field]])
+  ]);
+};
+
+const populateOrderItems = async (order, fields) => ({
+  ...order,
+  items: await Promise.all((order.items || []).map(async (item) => ({
+    ...item,
+    product: await getRecord('items', item.product).then((product) => {
+      if (!product || !fields) return product;
+      return Object.fromEntries([
+        ['_id', product._id],
+        ...fields.filter((field) => product[field] !== undefined).map((field) => [field, product[field]])
+      ]);
+    })
+  })))
+});
+
+const populateOrder = async (order, { userFields, productFields } = {}) => {
+  const [user, orderWithItems] = await Promise.all([
+    userFields ? getRecord('users', order.user) : Promise.resolve(order.user),
+    populateOrderItems(order, productFields)
+  ]);
+  return {
+    ...orderWithItems,
+    user: userFields ? publicUser(user, userFields) : order.user
+  };
+};
+
+const changeStock = async (productId, quantity) => {
+  const ref = database.ref(`items/${productId}`);
+  const result = await ref.transaction((item) => {
+    if (!item || Number(item.stockQuantity || 0) < quantity) return;
+    const stockQuantity = Number(item.stockQuantity || 0) - quantity;
+    return {
+      ...item,
+      stockQuantity,
+      status: stockQuantity === 0 ? 'sold' : item.status,
+      updatedAt: new Date().toISOString()
+    };
+  });
+  return result.committed;
+};
+
+const restoreStock = async (productId, quantity) => {
+  const ref = database.ref(`items/${productId}`);
+  await ref.transaction((item) => {
+    if (!item) return item;
+    const stockQuantity = Number(item.stockQuantity || 0) + quantity;
+    return {
+      ...item,
+      stockQuantity,
+      status: item.status === 'sold' ? 'available' : item.status,
+      updatedAt: new Date().toISOString()
+    };
+  });
+};
 
 exports.createOrder = async (req, res, next) => {
+  const reservedItems = [];
+  let createdOrder = null;
   try {
     const { paymentMethod, shippingAddress } = req.body;
+    if (!['online', 'cash'].includes(paymentMethod)) {
+      return res.status(400).json({ success: false, message: 'Invalid payment method' });
+    }
 
-    // 1. Get user's cart
-    const cart = await Cart.findOne({ user: req.user.id }).populate('items.product');
-
-    if (!cart || cart.items.length === 0) {
+    const cartSnapshot = await database.ref(`carts/${req.user._id}`).get();
+    const cart = cartSnapshot.val();
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       return res.status(400).json({ success: false, message: 'Your cart is empty' });
     }
 
-    // 2. Fetch platform settings for the current fee
-    const settings = await Settings.findOne() || { platformFee: 5 };
-    const feeMultiplier = settings.platformFee / 100;
+    const settingsSnapshot = await database.ref('settings/platform').get();
+    const platformFeeRate = Number(settingsSnapshot.val()?.platformFee ?? 5);
+    const products = await Promise.all(cart.items.map((entry) => getRecord('items', entry.product)));
+    if (products.some((product) => !product)) {
+      return res.status(400).json({ success: false, message: 'One or more cart products are no longer available' });
+    }
 
-    // 3. Prepare order items and calculate totals
-    const orderItems = cart.items.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      price: item.product.price // Store the price at the time of purchase
+    const orderItems = cart.items.map((entry, index) => ({
+      product: products[index]._id,
+      quantity: Number(entry.quantity),
+      price: Number(products[index].price)
     }));
+    if (orderItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
+      return res.status(400).json({ success: false, message: 'Cart contains an invalid quantity' });
+    }
 
-    const subtotal = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const platformFee = Math.round(subtotal * feeMultiplier);
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const platformFee = Math.round(subtotal * platformFeeRate / 100);
     const totalAmount = subtotal + platformFee;
 
-    // 3. Create the order
-    const order = await Order.create({
-      user: req.user.id,
+    for (const item of orderItems) {
+      if (!(await changeStock(item.product, item.quantity))) {
+        throw Object.assign(new Error('Insufficient stock for one or more items'), { statusCode: 400 });
+      }
+      reservedItems.push(item);
+    }
+
+    createdOrder = await createRecord('orders', {
+      user: req.user._id,
       items: orderItems,
       subtotal,
       platformFee,
       totalAmount,
       paymentMethod,
-      shippingAddress,
+      shippingAddress: shippingAddress || '',
       paymentStatus: paymentMethod === 'online' ? 'completed' : 'pending',
       orderStatus: 'pending'
     });
 
-    // 4. Update item stock quantities and status
-    for (const item of orderItems) {
-      const product = await Item.findById(item.product);
-      if (product) {
-        product.stockQuantity = Math.max(0, product.stockQuantity - item.quantity);
-        if (product.stockQuantity === 0) {
-          product.status = 'sold';
-        }
-        await product.save();
-      }
-    }
-
-    // 5. Clear the user's cart
-    cart.items = [];
-    await cart.save();
-
-    res.status(201).json({
-      success: true,
-      data: order
+    await database.ref(`carts/${req.user._id}`).update({
+      items: [],
+      updatedAt: new Date().toISOString()
     });
+
+    res.status(201).json({ success: true, data: createdOrder });
   } catch (err) {
+    if (createdOrder) await deleteRecord('orders', createdOrder._id);
+    await Promise.all(reservedItems.map((item) => restoreStock(item.product, item.quantity)));
+    if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     next(err);
   }
 };
 
-// @desc    Get user's order history
-// @route   GET /api/orders/my
-// @access  Private
 exports.getMyOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find({ user: req.user.id })
-      .populate('items.product', 'title imageUrl price')
-      .sort('-createdAt');
-
-    res.status(200).json({
-      success: true,
-      data: orders
-    });
+    const orders = (await listRecords('orders'))
+      .filter((order) => order.user === req.user._id)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    const data = await Promise.all(orders.map((order) =>
+      populateOrder(order, { productFields: ['title', 'imageUrl', 'price'] })
+    ));
+    res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get all orders (Admin)
-// @route   GET /api/orders
-// @access  Private/Admin
 exports.getAllOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find()
-      .populate('user', 'firstName lastName universityEmail')
-      .populate('items.product', 'title price')
-      .sort('-createdAt');
-
-    res.status(200).json({
-      success: true,
-      data: orders
-    });
+    const orders = (await listRecords('orders'))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    const data = await Promise.all(orders.map((order) =>
+      populateOrder(order, {
+        userFields: ['firstName', 'lastName', 'universityEmail'],
+        productFields: ['title', 'price']
+      })
+    ));
+    res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Update order status
-// @route   PUT /api/orders/:id/status
-// @access  Private/Admin
 exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { orderStatus, paymentStatus } = req.body;
-    let order = await Order.findById(req.params.id);
-
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+    const allowedOrderStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const allowedPaymentStatuses = ['pending', 'completed', 'failed'];
+    if (orderStatus && !allowedOrderStatuses.includes(orderStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid order status' });
+    }
+    if (paymentStatus && !allowedPaymentStatuses.includes(paymentStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid payment status' });
     }
 
-    if (orderStatus) order.orderStatus = orderStatus;
-    if (paymentStatus) order.paymentStatus = paymentStatus;
-
-    // If order is delivered/completed, additional logic can be added here if needed
-    // (Stock was already decremented at creation for online/immediate orders)
-
-    await order.save();
-
-    res.status(200).json({
-      success: true,
-      data: order
-    });
+    const order = await getRecord('orders', req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    const updates = {};
+    if (orderStatus) updates.orderStatus = orderStatus;
+    if (paymentStatus) updates.paymentStatus = paymentStatus;
+    const updated = await updateRecord('orders', order._id, updates);
+    res.status(200).json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get user spending analytics
-// @route   GET /api/orders/analytics
-// @access  Private
 exports.getUserAnalytics = async (req, res, next) => {
   try {
-    const orders = await Order.find({ user: req.user.id, paymentStatus: 'completed' });
+    const orders = (await listRecords('orders')).filter((order) => order.user === req.user._id);
+    const completed = orders.filter((order) => order.paymentStatus === 'completed');
+    const totalSpent = completed.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+    const platformFees = completed.reduce((sum, order) => sum + Number(order.platformFee || 0), 0);
+    const itemsPurchased = completed.reduce(
+      (sum, order) => sum + (order.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0),
+      0
+    );
 
-    // 1. Basic Stats
-    const totalSpent = orders.reduce((acc, order) => acc + order.totalAmount, 0);
-    const platformFees = orders.reduce((acc, order) => acc + order.platformFee, 0);
-    const itemsPurchased = orders.reduce((acc, order) => 
-      acc + order.items.reduce((itemAcc, item) => itemAcc + item.quantity, 0), 0);
-
-    // 2. Monthly Spending (Last 6 Months)
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyDataMap = {};
-    
-    // Initialize last 6 months
+    const monthlyData = new Map();
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthName = months[d.getMonth()];
-      monthlyDataMap[monthName] = 0;
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthlyData.set(months[date.getMonth()], 0);
+    }
+    for (const order of completed) {
+      const month = months[new Date(order.createdAt).getMonth()];
+      if (monthlyData.has(month)) monthlyData.set(month, monthlyData.get(month) + Number(order.totalAmount || 0));
     }
 
-    orders.forEach(order => {
-      const date = new Date(order.createdAt);
-      const monthName = months[date.getMonth()];
-      if (monthlyDataMap.hasOwnProperty(monthName)) {
-        monthlyDataMap[monthName] += order.totalAmount;
-      }
-    });
-
-    const monthlySpending = Object.keys(monthlyDataMap).map(month => ({
-      month,
-      amount: monthlyDataMap[month]
-    }));
-
-    // 3. Pending Stats
-    const pendingOrders = await Order.countDocuments({ user: req.user.id, orderStatus: 'pending' });
-
-    // 4. Completed Orders List (Detailed)
-    const completedOrdersList = await Order.find({ user: req.user.id, paymentStatus: 'completed' })
-      .populate('items.product', 'title imageUrl price category')
-      .sort('-createdAt');
+    const completedOrders = await Promise.all(completed
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .map((order) => populateOrder(order, {
+        productFields: ['title', 'imageUrl', 'price', 'category']
+      })));
 
     res.status(200).json({
       success: true,
@@ -186,9 +226,9 @@ exports.getUserAnalytics = async (req, res, next) => {
         totalSpent,
         itemsPurchased,
         platformFees,
-        monthlySpending,
-        pendingOrders,
-        completedOrders: completedOrdersList
+        monthlySpending: [...monthlyData].map(([month, amount]) => ({ month, amount })),
+        pendingOrders: orders.filter((order) => order.orderStatus === 'pending').length,
+        completedOrders
       }
     });
   } catch (err) {
@@ -196,43 +236,34 @@ exports.getUserAnalytics = async (req, res, next) => {
   }
 };
 
-// @desc    Get seller financial analytics (only orders containing this seller's items)
-// @route   GET /api/orders/seller/analytics
-// @access  Private/Seller
 exports.getSellerAnalytics = async (req, res, next) => {
   try {
-    const sellerId = String(req.user.id || req.user._id);
-
-    // NOTE: We keep this simple (populate + filter) since typical campus datasets are small.
-    // If this grows, move to an aggregation pipeline with a $lookup on items.
-    const orders = await Order.find()
-      .populate('user', 'firstName lastName universityEmail')
-      .populate('items.product', 'title imageUrl seller')
-      .sort('-createdAt');
-
+    const sellerId = req.user._id;
+    const orders = (await listRecords('orders'))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const sellerOrders = [];
 
     for (const order of orders) {
-      const sellerItems = (order.items || []).filter((it) => {
-        const product = it.product;
-        if (!product) return false;
-        const productSeller = product.seller?._id ? String(product.seller._id) : String(product.seller);
-        return productSeller === sellerId;
-      });
-
+      const user = await getRecord('users', order.user);
+      const products = await Promise.all((order.items || []).map(async (entry) => ({
+        ...entry,
+        product: await getRecord('items', entry.product)
+      })));
+      const sellerItems = products.filter((entry) => entry.product?.seller === sellerId);
       if (sellerItems.length === 0) continue;
 
-      const sellerSubtotal = sellerItems.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 0)), 0);
-
-      // Platform fee is charged on the whole order; allocate proportionally for visibility.
-      const feeShare =
-        Number(order.subtotal || 0) > 0
-          ? Math.round(Number(order.platformFee || 0) * (sellerSubtotal / Number(order.subtotal || 1)))
-          : 0;
+      const sellerSubtotal = sellerItems.reduce(
+        (sum, entry) => sum + Number(entry.price || 0) * Number(entry.quantity || 0),
+        0
+      );
+      const subtotal = Number(order.subtotal || 0);
+      const feeShare = subtotal > 0
+        ? Math.round(Number(order.platformFee || 0) * (sellerSubtotal / subtotal))
+        : 0;
 
       sellerOrders.push({
         _id: order._id,
-        user: order.user,
+        user: publicUser(user),
         paymentMethod: order.paymentMethod,
         paymentStatus: order.paymentStatus,
         orderStatus: order.orderStatus,
@@ -244,20 +275,15 @@ exports.getSellerAnalytics = async (req, res, next) => {
         orderTotalAmount: order.totalAmount,
         sellerSubtotal,
         platformFeeShare: feeShare,
-        items: sellerItems.map((it) => ({
-          product: it.product,
-          quantity: it.quantity,
-          price: it.price
-        }))
+        items: sellerItems
       });
     }
 
-    const completedOrders = sellerOrders.filter((o) => o.paymentStatus === 'completed');
-    const pendingOrders = sellerOrders.filter((o) => o.paymentStatus === 'pending');
-
-    const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.sellerSubtotal || 0), 0);
-    const itemsSold = completedOrders.reduce(
-      (sum, o) => sum + (o.items || []).reduce((s, it) => s + Number(it.quantity || 0), 0),
+    const completed = sellerOrders.filter((order) => order.paymentStatus === 'completed');
+    const pending = sellerOrders.filter((order) => order.paymentStatus === 'pending');
+    const totalRevenue = completed.reduce((sum, order) => sum + Number(order.sellerSubtotal || 0), 0);
+    const itemsSold = completed.reduce(
+      (sum, order) => sum + (order.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0),
       0
     );
 
@@ -266,8 +292,8 @@ exports.getSellerAnalytics = async (req, res, next) => {
       data: {
         totalRevenue,
         itemsSold,
-        completedOrders: completedOrders.length,
-        pendingOrders: pendingOrders.length,
+        completedOrders: completed.length,
+        pendingOrders: pending.length,
         orders: sellerOrders
       }
     });

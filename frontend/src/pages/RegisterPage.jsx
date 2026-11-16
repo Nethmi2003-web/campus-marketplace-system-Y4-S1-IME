@@ -1,13 +1,10 @@
-import { cn } from '../lib/utils';
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { UserPlus, ShieldCheck, Mail, Lock, User, Building2 } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/shared/UI";
 import { setSessionForRole } from "../lib/session";
 import { toast } from "react-toastify";
-
-
-// UI Components removed, now using shared UI library from ../components/shared/UI
+import { API_BASE } from "../services/api";
 
 
 function RegisterPage() {
@@ -38,7 +35,7 @@ function RegisterPage() {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5001/api/users/register", {
+      const res = await fetch(`${API_BASE}/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)

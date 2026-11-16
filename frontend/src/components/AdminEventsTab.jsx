@@ -4,6 +4,7 @@ import { PlusCircle, Image as ImageIcon, Calendar as CalendarIcon, MapPin, Users
 import { cn } from "../lib/utils";
 import { toast } from "react-toastify";
 import { PaginationControls } from "./shared/PaginationControls";
+import { DatePicker } from "./shared/DatePicker";
 
 export function AdminEventsTab() {
   const [events, setEvents] = useState([]);
@@ -70,6 +71,10 @@ export function AdminEventsTab() {
     e.preventDefault();
     if (!imageFile) {
       toast.warn("Please select an image for the event.");
+      return;
+    }
+    if (!formData.date) {
+      toast.warn("Please select an event date.");
       return;
     }
 
@@ -146,7 +151,12 @@ export function AdminEventsTab() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-foreground">Date *</label>
-                <input required type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full px-4 py-2 bg-muted/30 border-2 border-border rounded-xl focus:border-primary outline-none transition-all" />
+                <DatePicker
+                  value={formData.date}
+                  onChange={(v) => setFormData((p) => ({ ...p, date: v }))}
+                  placeholder="Select a date"
+                  className="bg-muted/30 border-2 border-border rounded-xl focus:border-primary outline-none transition-all"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-foreground">Time</label>

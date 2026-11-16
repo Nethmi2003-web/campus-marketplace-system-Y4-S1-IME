@@ -17,25 +17,23 @@ function safeParseJSON(value) {
 }
 
 export function readSession(key) {
-  // Per-tab sessions (sessionStorage) prevent one user's login in another tab
-  // from overriding this tab's session.
+
   const fromSession = safeParseJSON(sessionStorage.getItem(key));
   if (fromSession) return fromSession;
 
-  // Legacy fallback (older builds stored sessions in localStorage).
   const fromLocal = safeParseJSON(localStorage.getItem(key));
   if (fromLocal) {
-    // Seed this tab's session so it stays stable even if another tab logs in.
+  
     try {
       sessionStorage.setItem(key, JSON.stringify(fromLocal));
     } catch {
-      // Ignore storage quota errors; caller will still receive the session.
+
     }
-    // Important: remove shared localStorage to prevent cross-tab session bleed.
+
     try {
       localStorage.removeItem(key);
     } catch {
-      // Ignore
+
     }
     return fromLocal;
   }
@@ -45,7 +43,7 @@ export function readSession(key) {
 
 export function writeSession(key, data) {
   sessionStorage.setItem(key, JSON.stringify(data));
-  // Ensure we do not keep a shared copy that would override other tabs.
+
   try {
     localStorage.removeItem(key);
   } catch {

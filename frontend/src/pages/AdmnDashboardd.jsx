@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { cn } from '../lib/utils';
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
-  Users, ShoppingBag, AlertTriangle, TrendingUp, ShieldCheck, 
+  Users, ShoppingBag, AlertTriangle, ShieldCheck, 
   ArrowUpRight, ArrowDownRight, LayoutDashboard,
   LogOut, Bell, Settings, Activity, Receipt, BadgeDollarSign, Calendar, FileText, UserCheck
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { AdminPricingTab } from "../components/AdminPricingTab";
 import { AdminTransactionsTab } from "../components/AdminTransactionsTab";
 import { AdminListingsTab } from "../components/AdminListingsTab";
@@ -20,11 +20,6 @@ import { AdminSettingsTab } from "../components/AdminSettingsTab";
 import { toast } from "react-toastify";
 import { clearSession, getAdminSessionWithKey, STORAGE_KEYS } from "../lib/session";
 
-// Removed IoT specific chart imports
-
-// -------------------------------------------------------------
-// STANDALONE ADMIN NAVBAR
-// -------------------------------------------------------------
 function AdminNavbar({ user }) {
   return (
     <nav className="h-20 bg-background/95 backdrop-blur-md border-b fixed top-0 left-0 right-0 z-40 px-6 flex items-center justify-between">
@@ -99,9 +94,7 @@ function AdminSidebar({ activeTab, setActiveTab }) {
   );
 }
 
-// -------------------------------------------------------------
-// MAIN ADMIN DASHBOARD
-// -------------------------------------------------------------
+
 export default function AdmnDashboardd() {
   const navigate = useNavigate();
   const { session: userInfo } = getAdminSessionWithKey();
@@ -111,7 +104,7 @@ export default function AdmnDashboardd() {
   const [recentListings, setRecentListings] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Aggressive Session Validation
+  
   useEffect(() => {
     const allowedAdminRoles = new Set(['admin', 'sportAdmin']);
     if (!userInfo.token || !allowedAdminRoles.has(userInfo.role)) {

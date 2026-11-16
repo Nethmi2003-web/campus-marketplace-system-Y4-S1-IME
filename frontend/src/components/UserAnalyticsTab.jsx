@@ -28,6 +28,7 @@ import {
 } from 'recharts';
 import { cn } from "../lib/utils";
 import { getBuyerSessionWithKey } from "../lib/session";
+import { DatePicker } from "./shared/DatePicker";
 
 const Card = ({ children, className }) => (
   <div className={cn("bg-card/40 backdrop-blur-xl border-2 border-white rounded-[2.5rem] shadow-xl shadow-black/5 overflow-hidden", className)}>
@@ -597,12 +598,11 @@ export function UserAnalyticsTab() {
                </div>
                <div className="space-y-1">
                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Purchase Date</label>
-                 <input
-                   type="date"
+                 <DatePicker
                    value={reportForm.purchaseDate}
-                   onChange={(e) => setReportForm(prev => ({ ...prev, purchaseDate: e.target.value }))}
-                   className="w-full px-4 py-3 rounded-2xl border bg-white text-sm"
-                   required
+                   onChange={(v) => setReportForm((prev) => ({ ...prev, purchaseDate: v }))}
+                   placeholder="Select purchase date"
+                   className="px-4 py-3 rounded-2xl border bg-white text-sm"
                  />
                </div>
                <div className="space-y-1">

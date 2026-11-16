@@ -1,126 +1,99 @@
-const Cart = require('../models/Cart');
-const Item = require('../../item-management/models/Item');
+const { database, getRecord } = require('../../config/database');
 
-// @desc    Get current user cart
-// @route   GET /api/cart
-// @access  Private
+const cartRef = (userId) => database.ref(`carts/${userId}`);
+
+const readOrCreateCart = async (userId) => {
+  const ref = cartRef(userId);
+  const now = new Date().toISOString();
+  const result = await ref.transaction((current) => current || {
+    user: userId,
+    items: [],
+    createdAt: now,
+    updatedAt: now
+  });
+  return { ...result.snapshot.val(), _id: userId };
+};
+
+const populateCart = async (cart) => ({
+  ...cart,
+  items: await Promise.all((cart.items || []).map(async (item) => ({
+    ...item,
+    product: await getRecord('items', item.product)
+  })))
+});
+
 exports.getCart = async (req, res, next) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id }).populate({
-      path: 'items.product',
-      select: 'title price category condition imageUrl'
-    });
-
-    if (!cart) {
-      // Create empty cart if not exists
-      cart = await Cart.create({ user: req.user.id, items: [] });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: cart
-    });
+    const cart = await readOrCreateCart(req.user._id);
+    res.status(200).json({ success: true, data: await populateCart(cart) });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Add item to cart or update quantity
-// @route   POST /api/cart
-// @access  Private
 exports.addToCart = async (req, res, next) => {
   try {
-    const { productId, quantity = 1 } = req.body;
-
-    // Check if product exists
-    const product = await Item.findById(productId);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+    const productId = String(req.body.productId || '');
+    const quantity = Number(req.body.quantity || 1);
+    if (!productId || !Number.isInteger(quantity) || quantity < 1) {
+      return res.status(400).json({ success: false, message: 'A valid product and quantity are required' });
     }
 
-    let cart = await Cart.findOne({ user: req.user.id });
-
-    const itemData = {
-      product: productId,
-      name: product.title,
-      price: product.price,
-      quantity,
-      imageUrl: product.imageUrl,
-      category: product.category,
-      condition: product.condition
-    };
-
-    if (!cart) {
-      cart = await Cart.create({
-        user: req.user.id,
-        items: [itemData]
+    const product = await getRecord('items', productId);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    if (quantity > Number(product.stockQuantity || 0)) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${product.stockQuantity || 0} items available in stock`
       });
-    } else {
-      // Check if product already in cart
-      const itemIndex = cart.items.findIndex(p => p.product.toString() === productId);
-
-      if (itemIndex > -1) {
-        // Product exists, update quantity and sync other details
-        const newQuantity = quantity;
-        if (newQuantity > product.stockQuantity) {
-          return res.status(400).json({ success: false, message: `Only ${product.stockQuantity} items available in stock` });
-        }
-        cart.items[itemIndex].quantity = newQuantity;
-        cart.items[itemIndex].price = product.price; // Sync price in case it changed
-        cart.items[itemIndex].name = product.title;
-        cart.items[itemIndex].imageUrl = product.imageUrl;
-      } else {
-        // Product does not exist, push to array
-        if (quantity > product.stockQuantity) {
-          return res.status(400).json({ success: false, message: `Only ${product.stockQuantity} items available in stock` });
-        }
-        cart.items.push(itemData);
-      }
-      await cart.save();
     }
 
-    // Populate and return
-    const updatedCart = await Cart.findById(cart._id).populate({
-      path: 'items.product',
-      select: 'title price category condition imageUrl'
+    const ref = cartRef(req.user._id);
+    const now = new Date().toISOString();
+    const result = await ref.transaction((current) => {
+      const cart = current || { user: req.user._id, items: [], createdAt: now };
+      const items = Array.isArray(cart.items) ? cart.items.slice() : [];
+      const itemIndex = items.findIndex((entry) => entry.product === productId);
+      const itemData = {
+        product: productId,
+        name: product.title,
+        price: product.price,
+        quantity,
+        imageUrl: product.imageUrl,
+        category: product.category,
+        condition: product.condition
+      };
+
+      if (itemIndex >= 0) items[itemIndex] = itemData;
+      else items.push(itemData);
+
+      return { ...cart, items, updatedAt: now };
     });
 
-    res.status(200).json({
-      success: true,
-      data: updatedCart
-    });
+    const cart = { ...result.snapshot.val(), _id: req.user._id };
+    res.status(200).json({ success: true, data: await populateCart(cart) });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Remove item from cart
-// @route   DELETE /api/cart/:productId
-// @access  Private
 exports.removeFromCart = async (req, res, next) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id });
+    const ref = cartRef(req.user._id);
+    const snapshot = await ref.get();
+    if (!snapshot.exists()) return res.status(404).json({ success: false, message: 'Cart not found' });
 
-    if (!cart) {
-      return res.status(404).json({ success: false, message: 'Cart not found' });
-    }
+    const now = new Date().toISOString();
+    const result = await ref.transaction((current) => current
+      ? {
+          ...current,
+          items: (current.items || []).filter((item) => item.product !== req.params.productId),
+          updatedAt: now
+        }
+      : current);
 
-    // Filter out the item
-    cart.items = cart.items.filter(
-      item => item.product.toString() !== req.params.productId
-    );
-
-    await cart.save();
-
-    const updatedCart = await Cart.findById(cart._id).populate({
-      path: 'items.product',
-      select: 'title price category condition imageUrl'
-    });
-
-    res.status(200).json({
-      success: true,
-      data: updatedCart
-    });
+    const cart = { ...result.snapshot.val(), _id: req.user._id };
+    res.status(200).json({ success: true, data: await populateCart(cart) });
   } catch (err) {
     next(err);
   }

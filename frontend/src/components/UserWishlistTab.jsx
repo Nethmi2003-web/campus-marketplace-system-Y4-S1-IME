@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { cn } from '../lib/utils';
-import { 
-  Heart, ShoppingCart, Trash2, Tag, Clock, 
-  PackageSearch, Loader2, X 
-} from "lucide-react";
+import { Heart, ShoppingCart, Trash2, Tag, X } from "lucide-react";
 import { Button } from "./shared/UI"; // Use the shared premium UI library
 import { toast } from "react-toastify";
 import { getBuyerSessionWithKey } from "../lib/session";

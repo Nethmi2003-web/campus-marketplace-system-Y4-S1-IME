@@ -27,11 +27,11 @@
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #001f5c;
-  --chart-1: #001f5c;
-  --chart-2: #ff6600;
-  --chart-3: #3b82f6;
+  --chart-1: #1d4ed8;
+  --chart-2: #f97316;
+  --chart-3: #60a5fa;
   --chart-4: #ef4444;
-  --chart-5: #8b5cf6;
+  --chart-5: #bfdbfe;
   --radius: 0.625rem;
   --sidebar: #001f5c;
   --sidebar-foreground: #ffffff;
@@ -50,35 +50,35 @@
   --card-foreground: #f8fafc;
   --popover: #1e293b;
   --popover-foreground: #f8fafc;
-  --primary: #22c55e;
+  --primary: #60a5fa;
   --primary-foreground: #ffffff;
-  --secondary: #334155;
+  --secondary: #f97316;
   --secondary-foreground: #f8fafc;
   --muted: #334155;
   --muted-foreground: #94a3b8;
-  --accent: #1e3a2e;
-  --accent-foreground: #22c55e;
+  --accent: #172554;
+  --accent-foreground: #93c5fd;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #334155;
   --input-background: #1e293b;
-  --ring: #22c55e;
+  --ring: #60a5fa;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: #22c55e;
-  --chart-2: #3b82f6;
-  --chart-3: #f59e0b;
+  --chart-1: #60a5fa;
+  --chart-2: #f97316;
+  --chart-3: #93c5fd;
   --chart-4: #ef4444;
-  --chart-5: #8b5cf6;
-  --sidebar: #2c5f4e;
+  --chart-5: #fdba74;
+  --sidebar: #102a56;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #7bdc93;
-  --sidebar-primary-foreground: #2c5f4e;
-  --sidebar-accent: #3a6b5a;
+  --sidebar-primary: #fb923c;
+  --sidebar-primary-foreground: #102a56;
+  --sidebar-accent: #1e3a6d;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #3a6b5a;
-  --sidebar-ring: #7bdc93;
+  --sidebar-border: #294a7a;
+  --sidebar-ring: #fb923c;
 }
 
 @theme {
@@ -149,11 +149,11 @@
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, var(--sidebar-primary) 0%, rgba(123, 220, 147, 0.8) 100%);
+    background: linear-gradient(135deg, var(--sidebar-primary) 0%, rgba(249, 115, 22, 0.8) 100%);
   }
 
   .gradient-glow {
-    box-shadow: 0 0 20px rgba(123, 220, 147, 0.3), 0 0 40px rgba(123, 220, 147, 0.1);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3), 0 0 40px rgba(249, 115, 22, 0.1);
   }
 
   .gradient-border {
