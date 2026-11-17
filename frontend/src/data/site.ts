@@ -1,6 +1,6 @@
 export const brand = {
-  name: "UniSwap – Campus Cart",
-  shortName: "CampusCart",
+  name: "UniSwap",
+  shortName: "UniSwap",
   tagline: "Campus essentials in 15–30 minutes. Powered by students.",
   email: "contact@uniswapcampuscart.lk",
   phone: "+94 11 240 7000",
@@ -13,7 +13,7 @@ export const homeContent = {
   problemEyebrow: "Campus life, without the detour",
   problemTitle: "Good food shouldn’t cost you a lecture break.",
   problemDescription:
-    "Campus shops are close, but getting what you need is not always quick. CampusCart brings trusted local options to one student-powered delivery network.",
+    "Campus shops are close, but getting what you need is not always quick. UniSwap brings trusted local options to one student-powered delivery network.",
   problemCards: [
     {
       icon: "clock",
@@ -115,7 +115,7 @@ export const sitemap = {
   ],
   connect: [
     { label: "About us", href: "/about" },
-    { label: "Join CampusCart", href: "/join" },
+    { label: "Join UniSwap", href: "/join" },
     { label: "Contact", href: "/contact" },
   ],
 };
@@ -218,7 +218,7 @@ export const services = [
   },
   {
     icon: "crown",
-    title: "CampusCart Premium",
+    title: "UniSwap Premium",
     description: "A monthly membership with delivery benefits and exclusive offers.",
   },
   {
@@ -272,7 +272,7 @@ export const marketShare = [
 
 export const competitors = [
   {
-    name: "CampusCart",
+    name: "UniSwap",
     product: "Hyper-local campus delivery",
     value: "Campus-focused convenience",
     advertising: "Campus partnerships and student communities",
@@ -346,7 +346,7 @@ export const faq = [
   {
     question: "What does Premium include?",
     answer:
-      "CampusCart Premium is Rs 1,636 per month and includes free delivery and exclusive offers.",
+      "UniSwap Premium is Rs 1,636 per month and includes free delivery and exclusive offers.",
   },
   {
     question: "How long does delivery take?",

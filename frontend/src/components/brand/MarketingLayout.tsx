@@ -21,6 +21,8 @@ function Header() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open]);
 
+  const isDark = theme === "dark";
+
   return (
     <header className="cc-header">
       <a className="cc-skip-link" href="#main-content">
@@ -34,8 +36,11 @@ function Header() {
               {item.label}
             </NavLink>
           ))}
-          <Link className="cc-nav-mobile-cta" onClick={() => setOpen(false)} to="/join">
-            Join the launch
+          <Link className="cc-nav-mobile-cta" onClick={() => setOpen(false)} to="/login">
+            Login
+          </Link>
+          <Link className="cc-nav-mobile-cta" onClick={() => setOpen(false)} to="/register">
+            Sign Up
           </Link>
         </nav>
         <div className="cc-header-actions">
@@ -47,8 +52,29 @@ function Header() {
           >
             {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
           </button>
-          <Link className="cc-button cc-button-small cc-header-cta" to="/join">
-            Get early access <span aria-hidden="true">↗</span>
+          <Link
+            className="cc-button cc-button-small"
+            style={{
+              background: isDark ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              color: isDark ? "#ffffff" : "#0B1F3A",
+              WebkitTextFillColor: isDark ? "#ffffff" : "#0B1F3A",
+              border: isDark ? "1.5px solid rgba(255, 255, 255, 0.35)" : "1.5px solid #0B1F3A",
+              boxShadow: "none",
+            }}
+            to="/login"
+          >
+            <span
+              style={{
+                color: isDark ? "#ffffff" : "#0B1F3A",
+                WebkitTextFillColor: isDark ? "#ffffff" : "#0B1F3A",
+                fontWeight: 700,
+              }}
+            >
+              Login
+            </span>
+          </Link>
+          <Link className="cc-button cc-button-small cc-header-cta" to="/register">
+            Sign Up <span aria-hidden="true">↗</span>
           </Link>
           <button
             aria-expanded={open}

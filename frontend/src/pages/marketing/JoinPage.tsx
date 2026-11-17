@@ -12,39 +12,39 @@ import {
   Tabs,
 } from "../../components/ui/MarketingUI";
 
-type JoinType = "customer" | "vendor" | "partner";
+type JoinType = "buyer" | "seller";
+
 interface Submission {
   type: JoinType;
   name: string;
   email: string;
-  organization: string;
+  studentId: string;
   note: string;
 }
 
 const submissions: Submission[] = [];
 
 const tabs: { id: JoinType; label: string }[] = [
-  { id: "customer", label: "Customer waitlist" },
-  { id: "vendor", label: "Vendor" },
-  { id: "partner", label: "Delivery partner" },
+  { id: "buyer", label: "Buyer" },
+  { id: "seller", label: "Seller" },
 ];
 
 export default function JoinPage() {
   usePageMeta(
-    "Join the launch",
-    "Join the CampusCart early-access list as a customer, campus vendor, delivery partner or ambassador.",
+    "Join UniSwap",
+    "Join the UniSwap verified student-only campus marketplace as a Buyer or Seller.",
   );
+
   const [params, setParams] = useSearchParams();
-  const initialType =
-    params.get("type") === "vendor"
-      ? "vendor"
-      : params.get("type") === "partner"
-        ? "partner"
-        : "customer";
+  const initialType: JoinType =
+    params.get("type") === "seller" || params.get("type") === "vendor"
+      ? "seller"
+      : "buyer";
+
   const [type, setType] = useState<JoinType>(initialType);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [organization, setOrganization] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -52,66 +52,63 @@ export default function JoinPage() {
     const nextType = next as JoinType;
     setType(nextType);
     setSubmitted(false);
-    setParams(nextType === "customer" ? {} : { type: nextType }, { replace: true });
+    setParams(nextType === "buyer" ? {} : { type: nextType }, { replace: true });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submissions.push({ type, name, email, organization, note });
+    submissions.push({ type, name, email, studentId, note });
     setSubmitted(true);
     setName("");
     setEmail("");
-    setOrganization("");
+    setStudentId("");
     setNote("");
   }
 
   const formCopy = {
-    customer: {
-      title: "Get early access.",
-      helper: "Be first to hear when campus delivery opens.",
+    buyer: {
+      title: "Join as a Student Buyer.",
+      helper: "Browse affordable second-hand books, electronics, and hostel essentials from verified students.",
     },
-    vendor: {
-      title: "Bring your business to campus.",
-      helper: "Tell us a little about your shop and we'll follow up about vendor onboarding.",
-    },
-    partner: {
-      title: "Make campus time count.",
-      helper: "Share your interests in student delivery or campus ambassador opportunities.",
+    seller: {
+      title: "Join as a Student Seller.",
+      helper: "List your pre-owned textbooks, gadgets, or hostel items safely within your university community.",
     },
   }[type];
 
   return (
     <>
       <PageIntro
-        eyebrow="Join the campus loop"
-        title="The first launch starts with you."
-        description="Get updates, partner with us or help deliver the campus day."
+        eyebrow="Join the campus marketplace"
+        title="The student marketplace starts with you."
+        description="Register with your verified university email and student ID to buy or sell safely on campus."
       />
       <Section className="cc-join-section">
         <div className="cc-join-grid">
           <div className="cc-join-copy">
-            <span className="cc-eyebrow">CampusCart · Malabe launch</span>
+            <span className="cc-eyebrow">UniSwap · Verified Student Loop</span>
             <h2>Bring your part of campus along.</h2>
             <p>
-              We’re building with the SLIIT Malabe community—one customer, vendor and student
-              partner at a time.
+              We’re building a trusted, student-only buying and selling community—one verified
+              buyer and seller at a time.
             </p>
             <div className="cc-join-points">
               <p>
-                <CheckCircle2 size={18} /> Early launch updates
+                <CheckCircle2 size={18} /> University email (`@uni.edu` / `@my.sliit.lk`) & Student ID verification
               </p>
               <p>
-                <CheckCircle2 size={18} /> Local vendor discovery
+                <CheckCircle2 size={18} /> Affordable second-hand books, electronics & hostel items
               </p>
               <p>
-                <CheckCircle2 size={18} /> A student-powered community
+                <CheckCircle2 size={18} /> AI-monitored trust scores, bulk discounts & secure payments
               </p>
             </div>
             <div className="cc-join-quote">
-              “Your campus is already a community. We’re just making it easier to show up for one
-              another.”
+              “No outsiders, no fraud—just verified university students trading essentials safely
+              with one another.”
             </div>
           </div>
+
           <Card
             aria-labelledby={`cc-tab-${type}`}
             className="cc-form-card"
@@ -119,7 +116,12 @@ export default function JoinPage() {
             role="tabpanel"
             tabIndex={0}
           >
-            <Tabs items={tabs} label="Choose how to join" onChange={chooseType} selected={type} />
+            <Tabs
+              items={tabs}
+              label="Choose your marketplace role"
+              onChange={chooseType}
+              selected={type}
+            />
             <form className="cc-form" onSubmit={handleSubmit}>
               <div>
                 <h2>{formCopy.title}</h2>
@@ -129,57 +131,55 @@ export default function JoinPage() {
                 id="cc-join-name"
                 label="Full name"
                 onChange={setName}
-                placeholder="Your name"
+                placeholder="Your full name"
                 required
                 value={name}
               />
               <FormField
                 id="cc-join-email"
-                label="Email address"
+                label="University email address"
                 onChange={setEmail}
-                placeholder="you@university.edu"
+                placeholder="it23312708@my.sliit.lk"
                 required
                 type="email"
                 value={email}
               />
-              {type !== "customer" && (
-                <FormField
-                  id="cc-join-organization"
-                  label={
-                    type === "vendor" ? "Business or shop name" : "Course, year or campus group"
-                  }
-                  onChange={setOrganization}
-                  placeholder={type === "vendor" ? "Your business name" : "A little about you"}
-                  required
-                  value={organization}
-                />
-              )}
+              <FormField
+                id="cc-join-student-id"
+                label="University Student ID"
+                onChange={setStudentId}
+                placeholder="e.g., IT23312708"
+                required
+                value={studentId}
+              />
               <FormField
                 as="textarea"
                 id="cc-join-note"
                 label={
-                  type === "vendor"
-                    ? "What do you sell?"
-                    : type === "partner"
-                      ? "What interests you about joining?"
-                      : "Anything you'd like us to know? (optional)"
+                  type === "seller"
+                    ? "What categories do you plan to sell? (Books, Electronics, Hostel Items)"
+                    : "What campus essentials are you looking for? (optional)"
                 }
                 onChange={setNote}
-                placeholder="Share a little more..."
-                required={type !== "customer"}
+                placeholder={
+                  type === "seller"
+                    ? "e.g., 2nd-year IT textbooks, scientific calculator, hostel study lamp..."
+                    : "Share what you'd like to find on UniSwap..."
+                }
+                required={type === "seller"}
                 value={note}
               />
               <button className="cc-button cc-form-submit" type="submit">
-                {type === "customer" ? "Join the waitlist" : "Send my interest"}{" "}
+                {type === "buyer" ? "Register as Buyer" : "Apply as Seller"}{" "}
                 <span aria-hidden="true">↗</span>
               </button>
               {submitted && (
                 <p aria-live="polite" className="cc-form-success">
-                  <CheckCircle2 size={17} /> Thanks for your interest. Your details are saved for
-                  this session only.
+                  <CheckCircle2 size={17} /> Your {type} registration details have been recorded
+                  for student verification.
                 </p>
               )}
-              <small>Client-side form · no backend · submissions are kept in memory only.</small>
+              <small>Verified university access only · Student ID validation required.</small>
             </form>
           </Card>
         </div>

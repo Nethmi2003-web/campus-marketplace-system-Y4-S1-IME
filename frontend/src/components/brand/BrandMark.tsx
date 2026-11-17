@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 export function BrandMark() {
   return (
-    <Link aria-label="CampusCart home" className="cc-brand" to="/">
+    <Link aria-label="UniSwap home" className="cc-brand" to="/">
       <svg aria-hidden="true" className="cc-brand-mark" viewBox="0 0 42 42" fill="none">
         <rect width="42" height="42" rx="14" fill="currentColor" />
         <path
@@ -23,7 +23,7 @@ export function BrandMark() {
         />
       </svg>
       <span>
-        Campus<span className="cc-brand-accent">Cart</span>
+        <span className="cc-brand-accent">UniSwap</span>
       </span>
     </Link>
   );

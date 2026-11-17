@@ -27,11 +27,11 @@
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #001f5c;
-  --chart-1: #1d4ed8;
+  --chart-1: #001f5c;
   --chart-2: #f97316;
-  --chart-3: #60a5fa;
+  --chart-3: #001f5c;
   --chart-4: #ef4444;
-  --chart-5: #bfdbfe;
+  --chart-5: #002a7a;
   --radius: 0.625rem;
   --sidebar: #001f5c;
   --sidebar-foreground: #ffffff;
@@ -50,25 +50,25 @@
   --card-foreground: #f8fafc;
   --popover: #1e293b;
   --popover-foreground: #f8fafc;
-  --primary: #60a5fa;
+  --primary: #001f5c;
   --primary-foreground: #ffffff;
   --secondary: #f97316;
   --secondary-foreground: #f8fafc;
   --muted: #334155;
   --muted-foreground: #94a3b8;
   --accent: #172554;
-  --accent-foreground: #93c5fd;
+  --accent-foreground: #001f5c;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #334155;
   --input-background: #1e293b;
-  --ring: #60a5fa;
+  --ring: #001f5c;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: #60a5fa;
+  --chart-1: #001f5c;
   --chart-2: #f97316;
-  --chart-3: #93c5fd;
+  --chart-3: #002a7a;
   --chart-4: #ef4444;
   --chart-5: #fdba74;
   --sidebar: #102a56;
@@ -174,9 +174,10 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
-    &::-webkit-scrollbar {
-      display: none;
-    }
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -200,7 +200,7 @@ export function UserAnalyticsTab() {
       label: "Total Spent",
       value: `LKR ${data.totalSpent.toLocaleString()}`,
       icon: CreditCard,
-      color: "from-blue-500 to-indigo-600",
+      color: "from-[#001f5c] to-[#000e36]",
       description: "Lifetime marketplace spending"
     },
     {

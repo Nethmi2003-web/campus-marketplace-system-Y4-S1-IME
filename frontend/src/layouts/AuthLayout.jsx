@@ -12,9 +12,9 @@ const AuthLayout = ({ children, leftView = 'idle' }) => {
       {/* Universal Top Navbar to match Admin */}
       <header className={styles.topNavbar}>
         <div className={styles.logoSection}>
-          <div className={styles.logoIcon}>S</div>
+          <div className={styles.logoIcon}>U</div>
           <div className={styles.logoTextWrapper}>
-            <span className={styles.logoTitle}>SLIIT MARKETPLACE</span>
+            <span className={styles.logoTitle}>UniSwap</span>
             <span className={styles.logoSubtitle}>DIGITAL CAMPUS</span>
           </div>
         </div>

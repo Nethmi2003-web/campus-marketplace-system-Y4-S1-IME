@@ -345,7 +345,7 @@ export function SellerReportsTab({ reportModalOpen, setReportModalOpen, onGoToLi
                             status === "submitted"
                               ? "bg-amber-50 text-amber-700 border-amber-100"
                               : status === "in_review"
-                                ? "bg-blue-50 text-blue-700 border-blue-100"
+                                ? "bg-primary text-primary-foreground border-primary"
                                 : status === "resolved"
                                   ? "bg-green-50 text-green-700 border-green-100"
                                   : "bg-red-50 text-red-600 border-red-100"

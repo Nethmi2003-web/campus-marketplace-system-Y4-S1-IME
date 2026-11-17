@@ -97,7 +97,7 @@ function YearSelector({
 export default function FinancialsPage() {
   usePageMeta(
     "Financials",
-    "Interactive CampusCart sales, profit and loss, cash-flow, funding and loan projections.",
+    "Interactive UniSwap sales, profit and loss, cash-flow, funding and loan projections.",
   );
   const [activeTab, setActiveTab] = useState<DashboardTab>("sales");
   const [selectedYear, setSelectedYear] = useState<FinancialYear>("Y1");

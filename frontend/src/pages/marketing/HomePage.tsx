@@ -64,7 +64,7 @@ export default function HomePage() {
               <ShieldCheck size={16} /> Student-powered · Local vendors · Made for SLIIT
             </div>
           </div>
-          <div aria-label="CampusCart app preview" className="cc-hero-visual">
+          <div aria-label="UniSwap app preview" className="cc-hero-visual">
             <div className="cc-orbit cc-orbit-one" />
             <div className="cc-orbit cc-orbit-two" />
             <div className="cc-floating-note cc-note-time">
@@ -142,7 +142,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section aria-label="CampusCart highlights" className="cc-stats-strip">
+      <section aria-label="UniSwap highlights" className="cc-stats-strip">
         <div className="cc-container cc-stats-grid">
           {homeStats.map((stat) => (
             <StatCard key={stat.label} label={stat.label} value={stat.value} />
@@ -220,15 +220,15 @@ export default function HomePage() {
         className="cc-comparison-section"
         eyebrow="A better fit for campus"
         title="Campus convenience, on your terms."
-        description="Plan figures for CampusCart and the ranges cited in the student business plan."
+        description="Plan figures for UniSwap and the ranges cited in the student business plan."
       >
         <div className="cc-table-wrap cc-compare-wrap">
           <table className="cc-table cc-comparison-table">
-            <caption>CampusCart compared with other campus and delivery options</caption>
+            <caption>UniSwap compared with other campus and delivery options</caption>
             <thead>
               <tr>
                 <th scope="col">At a glance</th>
-                <th scope="col">CampusCart</th>
+                <th scope="col">UniSwap</th>
                 <th scope="col">Third-party apps</th>
                 <th scope="col">In-campus canteens</th>
                 <th scope="col">Off-campus shops</th>
@@ -284,7 +284,7 @@ export default function HomePage() {
       >
         <div className="cc-highlight-card">
           <div>
-            <h3>CampusCart is being built for the in-between moments.</h3>
+            <h3>UniSwap is being built for the in-between moments.</h3>
             <p>
               Between lectures. Before a deadline. When the canteen queue is just a little too long.
             </p>

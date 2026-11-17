@@ -14,7 +14,7 @@ interface ContactSubmission {
 const contactSubmissions: ContactSubmission[] = [];
 
 export default function ContactPage() {
-  usePageMeta("Contact", "Get in touch with the UniSwap CampusCart team in Malabe, Sri Lanka.");
+  usePageMeta("Contact", "Get in touch with the UniSwap team in Malabe, Sri Lanka.");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");

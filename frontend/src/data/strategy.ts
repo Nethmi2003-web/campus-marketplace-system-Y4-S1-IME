@@ -59,7 +59,7 @@ export const operationalPillars = [
     items: [
       "Business registration, terms and vendor agreements",
       "PCI-compliant payments",
-      "CampusCart trademark and source-code copyright",
+      "UniSwap trademark and source-code copyright",
     ],
   },
 ];

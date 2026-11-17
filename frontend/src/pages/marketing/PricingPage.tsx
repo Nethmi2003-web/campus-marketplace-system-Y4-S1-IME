@@ -15,7 +15,7 @@ const included = [
 export default function PricingPage() {
   usePageMeta(
     "Pricing",
-    "Transparent CampusCart delivery, Premium, vendor and campus-event pricing.",
+    "Transparent UniSwap delivery, Premium, vendor and campus-event pricing.",
   );
   const [ordersPerWeek, setOrdersPerWeek] = useState(pricing.calculatorExampleOrdersPerWeek);
   const [basketValue, setBasketValue] = useState(pricing.calculatorExampleBasketValue);
@@ -65,7 +65,7 @@ export default function PricingPage() {
             <span className="cc-card-icon">
               <Crown size={19} />
             </span>
-            <span className="cc-price-label">CampusCart Premium</span>
+            <span className="cc-price-label">UniSwap Premium</span>
             <h3>One membership. More campus freedom.</h3>
             <div className="cc-price-amount">
               {formatLkr(pricing.premiumMonthly)}
@@ -132,7 +132,7 @@ export default function PricingPage() {
             />
             <div className="cc-calculator-assumption">
               For comparison, this estimate uses a{" "}
-              {Math.round(pricing.calculatorPlatformFeeRate * 100)}% CampusCart platform fee, the
+              {Math.round(pricing.calculatorPlatformFeeRate * 100)}% UniSwap platform fee, the
               lowest stated delivery fee ({formatLkr(pricing.deliveryFeeMin)}) and the lower end of
               the typical third-party app fee range (
               {Math.round(pricing.comparisonAppFeeRate * 100)}% of basket value). Your first-
@@ -143,11 +143,11 @@ export default function PricingPage() {
           <Card className="cc-calculator-result">
             <span className="cc-eyebrow">Estimated monthly delivery cost</span>
             <div className="cc-cost-row">
-              <span>CampusCart · no membership</span>
+              <span>UniSwap · no membership</span>
               <strong>{formatLkr(estimate.campusCartMonthly)}</strong>
             </div>
             <div className="cc-cost-row">
-              <span>CampusCart Premium</span>
+              <span>UniSwap Premium</span>
               <strong>{formatLkr(estimate.campusCartPremiumMonthly)}</strong>
             </div>
             <div className="cc-cost-row">

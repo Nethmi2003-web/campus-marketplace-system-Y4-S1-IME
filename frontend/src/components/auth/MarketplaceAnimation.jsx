@@ -43,7 +43,7 @@ export default function MarketplaceAnimation({ isTyping }) {
         <g transform="translate(160, 400)">
           {/* Bottom Book */}
           <path d="M 0 60 L 140 60 L 150 40 L 10 40 Z" fill="#2563eb" />
-          <path d="M 140 60 L 150 40 L 150 50 L 140 70 Z" fill="#1d4ed8" />
+          <path d="M 140 60 L 150 40 L 150 50 L 140 70 Z" fill="#001f5c" />
           <rect x="10" y="45" width="120" height="10" fill="#ffffff" opacity="0.8" />
           {/* Middle Book */}
           <motion.g animate={isTyping ? { y: [-2, 0, -2] } : {}} transition={{ duration: 2, repeat: Infinity }}>

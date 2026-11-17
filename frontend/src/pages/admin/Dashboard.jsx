@@ -5,7 +5,7 @@ import styles from './AdminPages.module.css';
 const Dashboard = () => {
   // Static metrics based on prompt requirements
   const metrics = [
-    { label: 'Total Users', value: '250', icon: Users, color: '#3b82f6', bg: '#eff6ff' },
+    { label: 'Total Users', value: '250', icon: Users, color: '#001f5c', bg: '#f8fafc' },
     { label: 'Pending Verification', value: '18', icon: Clock, color: '#f59e0b', bg: '#fffbeb' },
     { label: 'Active Sellers', value: '76', icon: Store, color: '#10b981', bg: '#ecfdf5' },
     { label: 'Blocked Users', value: '4', icon: UserX, color: '#ef4444', bg: '#fef2f2' },

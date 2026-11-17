@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export function usePageMeta(title: string, description: string) {
   useEffect(() => {
-    document.title = `${title} | CampusCart`;
+    document.title = `${title} | UniSwap`;
     let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     if (!meta) {
       meta = document.createElement("meta");

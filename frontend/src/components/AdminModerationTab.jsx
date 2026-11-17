@@ -35,7 +35,7 @@ function badgeClass(kind) {
     case "seller_request":
       return "bg-amber-50 text-amber-700 border-amber-100";
     case "listing_attention":
-      return "bg-blue-50 text-blue-700 border-blue-100";
+      return "bg-primary text-primary-foreground border-primary";
     default:
       return "bg-muted text-muted-foreground border";
   }
@@ -174,7 +174,7 @@ export function AdminModerationTab({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Metric icon={Receipt} label="Open Payment Reports" value={openPaymentReportsCount} color="bg-red-100 text-red-600" />
         <Metric icon={UserCheck} label="Pending Seller Requests" value={pendingSellerReqCount} color="bg-amber-100 text-amber-700" />
-        <Metric icon={ShoppingBag} label="Listings Needing Attention" value={listingAttentionCount} color="bg-blue-100 text-blue-700" />
+        <Metric icon={ShoppingBag} label="Listings Needing Attention" value={listingAttentionCount} color="bg-primary text-primary-foreground" />
       </div>
 
       <div className="rounded-3xl border bg-card shadow-2xl overflow-hidden">
@@ -289,4 +289,3 @@ export function AdminModerationTab({
     </div>
   );
 }
-
